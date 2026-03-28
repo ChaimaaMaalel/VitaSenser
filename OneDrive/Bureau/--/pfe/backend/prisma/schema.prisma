@@ -1,0 +1,459 @@
+// Prisma Schema for Smart Hospital Database
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============ USERS ============
+enum UserRole {
+  ADMIN
+  DOCTOR
+  NURSE
+}
+
+enum ShiftType {
+  MORNING
+  AFTERNOON
+  NIGHT
+}
+
+model User {
+  id            String         @id @default(uuid())
+  email         String         @unique
+  password      String
+  firstName     String
+  lastName      String
+  phone         String?
+  role          UserRole
+  isActive      Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  
+  // Role-specific fields
+  admin         Admin?
+  doctor        Doctor?
+  nurse         Nurse?
+  
+  // Relations
+  generatedReports Report[]
+  performedInterventions Intervention[]
+  acknowledgedAlerts Alert[] @relation("AcknowledgedBy")
+  auditLogs     AuditLog[]
+  
+  @@index([email])
+  @@index([role])
+}
+
+model Admin {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permissions String[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Doctor {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  specialization  String
+  licenseNumber   String   @unique
+  
+  // Relations
+  patients        Patient[]
+  medicalProtocols MedicalProtocol[]
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([licenseNumber])
+}
+
+model Nurse {
+  id            String     @id @default(uuid())
+  userId        String     @unique
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shift         ShiftType
+  assignedFloorId String?
+  assignedFloor Floor?     @relation(fields: [assignedFloorId], references: [id])
+  
+  // Relations
+  patients      Patient[]
+  
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  
+  @@index([assignedFloorId])
+}
+
+// ============ HOSPITAL STRUCTURE ============
+model Hospital {
+  id        String   @id @default(uuid())
+  name      String
+  address   String
+  
+  floors    Floor[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Floor {
+  id           String   @id @default(uuid())
+  floorNumber  Int
+  name         String
+  description  String?
+  hospitalId   String
+  hospital     Hospital @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  
+  rooms        Room[]
+  assignedNurses Nurse[]
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  @@unique([hospitalId, floorNumber])
+  @@index([hospitalId])
+}
+
+enum RoomType {
+  STANDARD
+  ICU
+  SURGERY
+  EMERGENCY
+  ISOLATION
+}
+
+model Room {
+  id          String    @id @default(uuid())
+  roomNumber  String
+  type        RoomType
+  capacity    Int
+  floorId     String
+  floor       Floor     @relation(fields: [floorId], references: [id], onDelete: Cascade)
+  
+  beds        Bed[]
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  @@unique([floorId, roomNumber])
+  @@index([floorId])
+  @@index([type])
+}
+
+enum BedStatus {
+  AVAILABLE
+  OCCUPIED
+  MAINTENANCE
+  RESERVED
+}
+
+model Bed {
+  id         String     @id @default(uuid())
+  bedNumber  String
+  status     BedStatus  @default(AVAILABLE)
+  roomId     String
+  room       Room       @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  
+  patient    Patient?
+  
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  
+  @@unique([roomId, bedNumber])
+  @@index([roomId])
+  @@index([status])
+}
+
+// ============ PATIENT ============
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum PatientStatus {
+  ADMITTED
+  IN_TREATMENT
+  STABLE
+  CRITICAL
+  DISCHARGED
+}
+
+model Patient {
+  id              String         @id @default(uuid())
+  firstName       String
+  lastName        String
+  dateOfBirth     DateTime
+  gender          Gender
+  bloodType       String?
+  medicalHistory  String?
+  allergies       String[]
+  admissionDate   DateTime       @default(now())
+  dischargeDate   DateTime?
+  status          PatientStatus  @default(ADMITTED)
+  
+  // Relations
+  bedId           String?        @unique
+  bed             Bed?           @relation(fields: [bedId], references: [id])
+  assignedDoctorId String?
+  assignedDoctor  Doctor?        @relation(fields: [assignedDoctorId], references: [id])
+  assignedNurses  Nurse[]
+  
+  vitalSigns      VitalSigns[]
+  predictions     Prediction[]
+  alerts          Alert[]
+  interventions   Intervention[]
+  
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  
+  @@index([status])
+  @@index([assignedDoctorId])
+}
+
+// ============ MONITORING ============
+model VitalSigns {
+  id          String   @id @default(uuid())
+  patientId   String
+  patient     Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  
+  timestamp   DateTime @default(now())
+  heartRate   Int?
+  spO2        Float?
+  temperature Float?
+  ecgData     Float[]
+  systolicBP  Int?
+  diastolicBP Int?
+  
+  alerts      Alert[]
+  
+  createdAt   DateTime @default(now())
+  
+  @@index([patientId])
+  @@index([timestamp])
+}
+
+enum PredictionType {
+  SPO2_FORECAST
+  CARDIAC_RISK
+  PATIENT_STATUS
+  ANOMALY_DETECTION
+}
+
+model Prediction {
+  id             String         @id @default(uuid())
+  patientId      String
+  patient        Patient        @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  
+  timestamp      DateTime       @default(now())
+  type           PredictionType
+  predictedValue Float
+  confidence     Float
+  timeHorizon    Int            // Minutes into the future
+  
+  createdAt      DateTime       @default(now())
+  
+  @@index([patientId])
+  @@index([type])
+}
+
+// ============ ALERTS ============
+enum AlertType {
+  ANOMALY_DETECTED
+  CRITICAL_VITALS
+  CARDIAC_RISK_HIGH
+  SPO2_LOW_PREDICTED
+  TEMPERATURE_HIGH
+  HEART_RATE_ABNORMAL
+  MANUAL_ALERT
+}
+
+enum AlertSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum AlertStatus {
+  ACTIVE
+  ACKNOWLEDGED
+  RESOLVED
+  ESCALATED
+}
+
+model Alert {
+  id              String        @id @default(uuid())
+  patientId       String
+  patient         Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  
+  type            AlertType
+  severity        AlertSeverity
+  message         String
+  timestamp       DateTime      @default(now())
+  status          AlertStatus   @default(ACTIVE)
+  
+  triggeredBy     String?
+  acknowledgedById String?
+  acknowledgedBy  User?         @relation("AcknowledgedBy", fields: [acknowledgedById], references: [id])
+  acknowledgedAt  DateTime?
+  
+  vitalSignsId    String?
+  vitalSigns      VitalSigns?   @relation(fields: [vitalSignsId], references: [id])
+  
+  interventions   Intervention[]
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  
+  @@index([patientId])
+  @@index([status])
+  @@index([severity])
+  @@index([timestamp])
+}
+
+// ============ MEDICAL PROTOCOLS ============
+model MedicalProtocol {
+  id          String      @id @default(uuid())
+  name        String
+  description String
+  isActive    Boolean     @default(true)
+  
+  createdById String
+  createdBy   Doctor      @relation(fields: [createdById], references: [id])
+  
+  conditions  Condition[]
+  actions     Action[]
+  
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  
+  @@index([createdById])
+}
+
+model Condition {
+  id         String           @id @default(uuid())
+  protocolId String
+  protocol   MedicalProtocol  @relation(fields: [protocolId], references: [id], onDelete: Cascade)
+  
+  parameter  String
+  operator   String
+  value      Float
+  
+  createdAt  DateTime         @default(now())
+  
+  @@index([protocolId])
+}
+
+enum ActionType {
+  ALERT_NURSE
+  ALERT_DOCTOR
+  ADMINISTER_MEDICATION
+  PERFORM_TEST
+  TRANSFER_PATIENT
+}
+
+model Action {
+  id          String           @id @default(uuid())
+  protocolId  String
+  protocol    MedicalProtocol  @relation(fields: [protocolId], references: [id], onDelete: Cascade)
+  
+  type        ActionType
+  description String
+  priority    Int
+  
+  createdAt   DateTime         @default(now())
+  
+  @@index([protocolId])
+}
+
+// ============ INTERVENTIONS ============
+enum InterventionType {
+  MEDICATION_ADMINISTERED
+  VITAL_SIGNS_CHECK
+  DOCTOR_EXAMINATION
+  EMERGENCY_RESPONSE
+  PATIENT_TRANSFER
+  TREATMENT_ADJUSTMENT
+}
+
+model Intervention {
+  id            String           @id @default(uuid())
+  patientId     String
+  patient       Patient          @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  
+  performedById String
+  performedBy   User             @relation(fields: [performedById], references: [id])
+  
+  type          InterventionType
+  description   String
+  timestamp     DateTime         @default(now())
+  outcome       String?
+  
+  relatedAlertId String?
+  relatedAlert  Alert?           @relation(fields: [relatedAlertId], references: [id])
+  
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  
+  @@index([patientId])
+  @@index([performedById])
+  @@index([timestamp])
+}
+
+// ============ REPORTS ============
+enum ReportType {
+  OCCUPANCY_REPORT
+  ALERTS_SUMMARY
+  PATIENT_STATISTICS
+  AI_PERFORMANCE
+  INTERVENTIONS_LOG
+  DAILY_SUMMARY
+}
+
+model Report {
+  id            String     @id @default(uuid())
+  title         String
+  type          ReportType
+  
+  generatedById String
+  generatedBy   User       @relation(fields: [generatedById], references: [id])
+  
+  generatedAt   DateTime   @default(now())
+  startDate     DateTime
+  endDate       DateTime
+  data          Json
+  
+  createdAt     DateTime   @default(now())
+  
+  @@index([generatedById])
+  @@index([type])
+  @@index([generatedAt])
+}
+
+// ============ AUDIT LOGS ============
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  action    String
+  entity    String
+  entityId  String
+  timestamp DateTime @default(now())
+  ipAddress String?
+  details   Json?
+  
+  @@index([userId])
+  @@index([timestamp])
+  @@index([entity])
+}

@@ -1,0 +1,1638 @@
+================================================================================
+              INTELLIGENCE ARTIFICIELLE - DÉTAILS DES MODÈLES
+              Système de Surveillance Intelligente des Patients
+================================================================================
+
+TABLE DES MATIÈRES
+================================================================================
+1. Vue d'ensemble des modèles IA
+2. Données et sources
+3. Préparation des données
+4. Feature engineering
+5. Architecture des 4 modèles
+6. Processus d'entraînement
+7. Métriques d'évaluation
+8. Déploiement en production
+9. Inférence temps réel
+10. Code Python complet
+
+
+================================================================================
+1. VUE D'ENSEMBLE DES MODÈLES IA
+================================================================================
+
+Le système Smart Hospital utilise 4 modèles IA complémentaires :
+
+┌─────────────────────────────────────────────────────────────────┐
+│ MODÈLE 1: ISOLATION FOREST                                      │
+├─────────────────────────────────────────────────────────────────┤
+│ Objectif       : Détection d'anomalies en temps réel            │
+│ Entrée         : Vecteur de features (5-20 dimensions)          │
+│ Sortie         : Score d'anomalie (0-1)                         │
+│ Seuil d'alerte : Score > 0.5 = anomalie détectée               │
+│ Avantages      : Fast, pas besoin de labels, low false positive │
+│ Cas d'usage    : Détection rapide de patterns anormaux          │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│ MODÈLE 2: RANDOM FOREST                                         │
+├─────────────────────────────────────────────────────────────────┤
+│ Objectif       : Classification d'état patient                  │
+│ Entrée         : Vecteur de features                            │
+│ Sortie         : Classe (Stable/Attention/Critique)             │
+│ Probabilités   : Confiance pour chaque classe                   │
+│ Avantages      : Interprétabilité, robustesse, multi-class      │
+│ Cas d'usage    : État général du patient                        │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│ MODÈLE 3: LOGISTIC REGRESSION                                   │
+├─────────────────────────────────────────────────────────────────┤
+│ Objectif       : Prédiction de risque cardiaque                 │
+│ Entrée         : Features cardiaques (HR, ECG, HRV)             │
+│ Sortie         : Probabilité de risque (0-1)                    │
+│ Seuil d'alerte : Probabilité > 0.7 = alerte MEDIUM              │
+│ Avantages      : Simple, interprétable, rapide                  │
+│ Cas d'usage    : Prédiction binaire de risque                   │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│ MODÈLE 4: LSTM (Réseaux de neurones)                            │
+├─────────────────────────────────────────────────────────────────┤
+│ Objectif       : Prédiction respiratoire future (5-30 min)      │
+│ Entrée         : Séquence temporelle (10 min window)            │
+│ Sortie         : Valeur prédite de SpO₂ future                  │
+│ Avantages      : Capture patterns temporels complexes           │
+│ Cas d'usage    : Prédiction préventive de détérioration         │
+└─────────────────────────────────────────────────────────────────┘
+
+
+================================================================================
+2. DONNÉES ET SOURCES
+================================================================================
+
+2.1 Sources de Données Académiques
+
+PHYSIONET (MIT-BIH)
+  • MIT-BIH Arrhythmia Database : 48 enregistrements ECG, 30 min chacun
+  • MIT-BIH Normal Sinus Rhythm : ECG de sujets sains
+  • Contient : Fréquence 250 Hz, 2 canaux ECG, annotations
+
+PHYSIONET (MIMIC-III)
+  • Données ICU réelles (de-identified)
+  • 40,000+ patients
+  • Variables : HR, SpO₂, Temp, BP (tension artérielle)
+  • Heures d'enregistrement complètes
+
+KAGGLE DATASETS
+  • ECG signals for various cardiac conditions
+  • Heart Disease prediction datasets
+  • Healthcare sensor simulation data
+
+DONNÉES SYNTHÉTIQUES
+  • Simulées avec paramètres réalistes
+  • Respect de la confidentialité (GDPR)
+  • Augmentation artificielle du dataset
+
+
+2.2 Structure des Données
+
+Pour chaque patient enregistrement:
+├── Timestamp (horodatage, format ISO 8601)
+├── Vitals:
+│   ├── HR (Fréquence cardiaque) : 40-200 bpm
+│   ├── SpO₂ (Saturation oxygène) : 80-100%
+│   ├── Temperature : 35-42°C
+│   └── ECG (signal raw) : amplitude -2 à +2 mV
+├── Context:
+│   ├── Patient ID
+│   ├── Âge, sexe (optionnel)
+│   └── Conditions médicales antérieures
+└── Labels (si disponible):
+    ├── Normal / Anomaly
+    └── Stable / Warning / Critical
+
+
+2.3 Taille du Dataset Recommandée
+
+Pour données réelles:
+├── Isolation Forest : 500+ exemples (peut fonctionner avec peu de données)
+├── Random Forest : 1000+ exemples (étiqueté)
+├── Logistic Regression : 500+ exemples (étiqueté)
+└── LSTM : 5000+ séquences (séries temporelles longues)
+
+Total minimal optimal: 10,000+ enregistrements patients
+Durée coverage: 6+ mois de données réelles
+
+
+================================================================================
+3. PRÉPARATION DES DONNÉES
+================================================================================
+
+3.1 Nettoyage des Données
+
+Étape 1: Détection et traitement des valeurs manquantes
+  • Valeurs NULL/NaN:
+    - Interpolation linéaire pour petits gaps (< 1 minute)
+    - Forward fill pour capteur manquant temporaire
+    - Exclusion de séquences > 5% manquantes
+  
+  • Valeurs impossibles:
+    - HR = 400 bpm → ERREUR, exclure
+    - SpO₂ = 150% → ERREUR, exclure
+    - Temp = 100°C → ERREUR, exclure
+  
+  Code Python:
+  │
+  ├─ import pandas as pd
+  ├─ df = pd.read_csv('data.csv')
+  ├─ # Interpolation linéaire
+  ├─ df['HR'] = df['HR'].interpolate(method='linear')
+  ├─ # Détection outliers (IQR method)
+  ├─ Q1 = df['HR'].quantile(0.25)
+  ├─ Q3 = df['HR'].quantile(0.75)
+  ├─ IQR = Q3 - Q1
+  ├─ mask = (df['HR'] < Q1 - 1.5*IQR) | (df['HR'] > Q3 + 1.5*IQR)
+  ├─ df = df[~mask]
+  └─ # Résultat: dataset nettoyé
+
+Étape 2: Détection des valeurs aberrantes (Outliers)
+  • Z-score method : |z| > 3 = outlier
+  • IQR method : valeurs < Q1-1.5*IQR ou > Q3+1.5*IQR
+  • Domain knowledge: HR physiologiquement impossible
+
+Étape 3: Gestion des doublons
+  • Suppression des lignes dupliquées exactes
+  • Fusion des mesures trop rapprochées (< 1 sec)
+
+Étape 4: Alignement temporel
+  • Tous les signaux à la même fréquence d'échantillonnage
+  • ECG : 250 Hz (standard)
+  • Vitals autres : 1 Hz (mesure/seconde)
+  • Resample si nécessaire
+
+
+3.2 Normalisation et Standardisation
+
+Normalisation (0-1 range):
+  normalized_value = (value - min) / (max - min)
+  
+  Ranges typiques:
+  ├─ HR: min=40, max=200 → plage 160
+  ├─ SpO₂: min=80, max=100 → plage 20
+  ├─ Temp: min=35, max=42 → plage 7
+  └─ ECG: -2mV à +2mV
+
+Standardisation (mean=0, std=1):
+  standardized_value = (value - mean) / std
+  
+  Utiliser StandardScaler de scikit-learn:
+  ├─ from sklearn.preprocessing import StandardScaler
+  ├─ scaler = StandardScaler()
+  ├─ X_scaled = scaler.fit_transform(X_train)
+  ├─ # Important: fit sur train set UNIQUEMENT
+  ├─ X_test_scaled = scaler.transform(X_test)
+  └─ # Puis sauvegarder le scaler pour future prediction
+
+Balancing (équilibrage des classes):
+  Pour Random Forest (classification):
+  • Si 80% Stable vs 20% Critique → déséquilibré
+  • Solutions:
+    - SMOTE (Synthetic Minority Oversampling)
+    - Class weights dans le modèle
+    - Under-sampling de la classe majorité
+
+
+================================================================================
+4. FEATURE ENGINEERING
+================================================================================
+
+4.1 Classification des Features
+
+Les features transforment les signaux bruts en informations utiles.
+C'est L'ÉTAPE CRITIQUE pour performance du modèle.
+
+Format final:
+  X = [Feature_1, Feature_2, ..., Feature_N]  (vecteur 1D)
+  
+  Exemple:
+  X = [95, 0.92, 37.2, 12.5, 0.15, 0.08, 18, 0.3]
+      [HR, SpO2_norm, Temp, HRV_SDNN, HRV_pNN50, ECG_power_low, ECG_power_high, Trend]
+
+
+4.2 Time-Domain Features (Domaine temporel)
+
+Calculés directement sur le signal:
+
+FEATURES STATISTIQUES:
+  └─ Mean (Moyenne)
+     mean_HR = sum(HR_values) / N
+     
+  └─ Standard Deviation (Écart-type)
+     std_HR = sqrt(sum((HR_i - mean)²) / N)
+     → Indique variabilité HR
+     
+  └─ Min / Max (Extrêmes)
+     range_HR = max_HR - min_HR
+     → Amplitude des variations
+     
+  └─ Variance
+     var = std²
+     
+  └─ Skewness (Asymétrie)
+     Indique si distribution est symétrique
+     → Skewness > 0 : queue droite
+     → Skewness < 0 : queue gauche
+     
+  └─ Kurtosis (Aplatissement)
+     Indique si pics aigus ou plats
+     → Kurtosis > 3 : pic aigu (anormal)
+
+FEATURES DE TENDANCE:
+  └─ Slope (Pente)
+     trend = (HR_final - HR_initial) / time_interval
+     → Positive: augmentation
+     → Negative: diminution
+     
+  └─ Coefficient Variation (CV)
+     CV = std / mean
+     → Variabilité relative (en %)
+
+CODE EXEMPLE:
+  │
+  ├─ import numpy as np
+  ├─ from scipy import stats
+  ├─ 
+  ├─ def extract_time_features(signal, window_size=60):
+  ├─     features = {}
+  ├─     features['mean'] = np.mean(signal)
+  ├─     features['std'] = np.std(signal)
+  ├─     features['min'] = np.min(signal)
+  ├─     features['max'] = np.max(signal)
+  ├─     features['range'] = features['max'] - features['min']
+  ├─     features['variance'] = np.var(signal)
+  ├─     features['skewness'] = stats.skew(signal)
+  ├─     features['kurtosis'] = stats.kurtosis(signal)
+  ├─     # Trend
+  ├─     x = np.arange(len(signal))
+  ├─     coeffs = np.polyfit(x, signal, 1)
+  ├─     features['trend'] = coeffs[0]  # pente
+  ├─     return features
+  └─
+
+
+4.3 Heart Rate Variability (HRV) - Features
+
+HRV = variation des intervalles RR (entre battements cardiaques)
+→ Indicateur CLEF de stress cardiaque et santé
+
+FEATURES HRV TEMPORELS:
+  └─ SDNN (Standard Deviation NN)
+     SDNN = std(RR_intervals)
+     Normal: 100-200 ms
+     Faible SDNN = stress ou problème cardiaque
+     
+  └─ RMSSD (Root Mean Square Successive Difference)
+     RMSSD = sqrt(mean((RR_i - RR_{i-1})²))
+     Indique variabilité court terme
+     Normal: 20-100 ms
+     
+  └─ pNN50 (Percentage of successive differences)
+     pNN50 = % de RR différentes > 50ms
+     Normal: > 3%
+     Faible = problème normal sinus rhythm
+
+CODE:
+  │
+  ├─ # Extraire intervalles RR depuis ECG
+  ├─ # (Détection de pics R automatique)
+  ├─ 
+  ├─ from scipy.signal import find_peaks
+  ├─ 
+  ├─ def extract_hrv_features(ecg_signal, sampling_rate=250):
+  ├─     peaks, _ = find_peaks(ecg_signal, distance=200)
+  ├─     rr_intervals = np.diff(peaks) / sampling_rate  # secondes
+  ├─     
+  ├─     features = {}
+  ├─     features['SDNN'] = np.std(rr_intervals) * 1000  # ms
+  ├─     features['RMSSD'] = np.sqrt(np.mean(np.diff(rr_intervals)**2)) * 1000
+  ├─     
+  ├─     nn50 = np.sum(np.abs(np.diff(rr_intervals)) > 0.05)
+  ├─     features['pNN50'] = (nn50 / len(rr_intervals)) * 100
+  ├─     return features
+  └─
+
+
+4.4 Frequency-Domain Features (Transformée de Fourier)
+
+Analyse du signal dans domaine fréquence (FFT).
+Révèle quelles fréquences dominent le signal.
+
+CONCEPTS:
+  └─ FFT (Fast Fourier Transform)
+     Convertit signal temporel → spectre fréquence
+     ECG normal: dominants en basse fréquence (0.5-15 Hz)
+     Arythmie: patterns fréquence différents
+     
+  └─ Power Spectral Density (PSD)
+     Puissance à chaque fréquence
+     PSD = |FFT|²
+
+FEATURES FRÉQUENCE:
+  └─ Dominant Frequency
+     freq_dominante = fréquence avec max puissance
+     
+  └─ Power in bands
+     Power_0-5Hz = puissance dans bande 0-5 Hz
+     Power_5-15Hz = puissance dans bande 5-15 Hz
+     Ratio = Power_low / Power_high
+     
+  └─ Spectral Entropy
+     Mesure du "chaos" → distribution puissance
+     Entropy ↑ = signal plus random (moins structuré)
+
+CODE:
+  │
+  ├─ import numpy as np
+  ├─ from scipy.fft import fft, fftfreq
+  ├─ from scipy import signal as sig
+  ├─ 
+  ├─ def extract_frequency_features(ecg_signal, sampling_rate=250):
+  ├─     # FFT
+  ├─     N = len(ecg_signal)
+  ├─     fft_values = np.abs(fft(ecg_signal))
+  ├─     freqs = fftfreq(N, 1/sampling_rate)[:N//2]  # positive freqs
+  ├─     
+  ├─     features = {}
+  ├─     
+  ├─     # Dominant frequency
+  ├─     idx_dom = np.argmax(fft_values[:N//2])
+  ├─     features['dominant_freq'] = freqs[idx_dom]
+  ├─     
+  ├─     # Power in bands
+  ├─     power_0_5 = np.sum(fft_values[(freqs >= 0) & (freqs <= 5)])
+  ├─     power_5_15 = np.sum(fft_values[(freqs > 5) & (freqs <= 15)])
+  ├─     features['power_0_5Hz'] = power_0_5
+  ├─     features['power_5_15Hz'] = power_5_15
+  ├─     features['power_ratio'] = power_0_5 / (power_5_15 + 1e-6)
+  ├─     
+  ├─     # Spectral entropy
+  ├─     psd = fft_values**2 / (sampling_rate * N)
+  ├─     psd_norm = psd / np.sum(psd)
+  ├─     entropy = -np.sum(psd_norm * np.log2(psd_norm + 1e-10))
+  ├─     features['spectral_entropy'] = entropy
+  ├─     
+  ├─     return features
+  └─
+
+
+4.5 ECG Morphological Features
+
+Features spécifiques à la forme d'onde ECG.
+Nécessite détection automatique des points P, Q, R, S, T.
+
+CONCEPTS:
+  └─ Onde P : dépolarisation atriale
+  └─ Complexe QRS : dépolarisation ventriculaire (principal pic)
+  └─ Onde T : repolarisation ventriculaire
+
+FEATURES MORPHOLOGIQUES:
+  └─ QRS Width
+     Largeur du complexe QRS: 80-120 ms normal
+     > 120 ms = anomalie de conduction
+     
+  └─ ST Segment
+     Segment entre S et T
+     Normal: isoélectrique
+     Déviation = infarctus possible
+     
+  └─ QT Interval
+     Durée QT: 350-450 ms normal
+     > 450 ms = prolongé (anomalie)
+     
+  └─ Amplitude Features
+     P-wave_amplitude
+     QRS_amplitude
+     T-wave_amplitude
+
+CODE SIMPLIFIÉ (Détection automatique):
+  │
+  ├─ # Utiliser librairie specialized: neurokit2
+  ├─ import neurokit2 as nk
+  ├─ 
+  ├─ def extract_ecg_morphology(ecg_signal, sampling_rate=250):
+  ├─     # Analyse ECG complète
+  ├─     signals, info = nk.ecg_process(ecg_signal, sampling_rate)
+  ├─     
+  ├─     features = {}
+  ├─     # Durées
+  ├─     features['qrs_width'] = info['ECG_R_Peaks'].mean()  # simplifié
+  ├─     # Amplitudes
+  ├─     features['r_amplitude'] = np.max(signals['ECG_Raw'])
+  ├─     
+  ├─     return features
+  └─
+
+
+4.6 Temporal Sequence Features
+
+Pour LSTM: créer fenêtres glissantes de données.
+
+SLIDING WINDOW APPROACH:
+  Window_size: 10 minutes (600 secondes)
+  Stride: 1 minute (décalage entre fenêtres)
+  
+  Window 1: [t-10min à t] → features → label target (t+20min)
+  Window 2: [t-9min à t+1min] → features → label target (t+21min)
+  Window 3: [t-8min à t+2min] → features → label target (t+22min)
+  ...
+
+FORMAT POUR LSTM:
+  X_train shape: (n_sequences, sequence_length, n_features)
+  - n_sequences: nombre de fenêtres (ex: 5000)
+  - sequence_length: 10 minutes = 600 points (1 Hz)
+  - n_features: 2 (SpO₂ + HR)
+  
+  y_train shape: (n_sequences, 1)
+  - Valeur cible : SpO₂ dans 20 minutes
+
+EXEMPLE:
+  │
+  ├─ X_train = np.zeros((5000, 600, 2))  # 5000 séquences
+  ├─ y_train = np.zeros((5000, 1))
+  ├─ 
+  ├─ for i in range(5000):
+  ├─     # Extraire fenêtre de 10 min
+  ├─     window = data[i*60:(i+600)*60]  # 600 sec
+  ├─     # Features: SpO₂ et HR
+  ├─     X_train[i, :, 0] = window['SpO2']
+  ├─     X_train[i, :, 1] = window['HR']
+  ├─     # Target: SpO₂ dans 20 min
+  ├─     y_train[i, 0] = data[(i+600+1200)*60]['SpO2']  # +20 min
+  └─
+
+
+4.7 Resume - Toutes les Features
+
+Liste complète des features à extraire:
+
+TIME-DOMAIN (8 features):
+  1. HR_mean
+  2. HR_std
+  3. SpO2_mean
+  4. SpO2_std
+  5. Temp_mean
+  6. Temp_std
+  7. HR_trend (slope)
+  8. SpO2_trend
+
+HRV (3 features):
+  9. SDNN
+  10. RMSSD
+  11. pNN50
+
+FREQUENCY (3 features):
+  12. Dominant_frequency
+  13. Power_0_5Hz
+  14. Power_ratio
+
+ECG MORPHOLOGY (3 features):
+  15. QRS_width
+  16. R_amplitude
+  17. ST_deviation
+
+CONTEXT (3 features):
+  18. Time_of_day
+  19. Days_since_admission
+  20. Previous_alerts_count
+
+TOTAL: 20 features → vecteur d'entrée models
+
+
+================================================================================
+5. ARCHITECTURE DES 4 MODÈLES
+================================================================================
+
+5.1 MODÈLE 1: ISOLATION FOREST
+
+CONCEPT:
+  Anomaly detection par isolation progressive.
+  Points normaux: besoin beaucoup de séparations
+  Anomalies: faciles à isoler
+  
+  Anomaly_score = nombre de séparations nécessaires
+  Score ↑ = plus probable une anomalie
+
+PARAMÈTRES:
+  │
+  ├─ contamination: proportion attendue d'anomalies (0.05-0.2)
+  ├─ n_estimators: nombre d'arbres (100-500)
+  ├─ max_samples: samples par arbre ('auto' ou N)
+  └─ random_state: graine aléatoire (reproducibilité)
+
+ENTRÉE:
+  X shape: (n_samples, n_features)
+  Ex: (1000, 20) → 1000 patients, 20 features chacun
+
+SORTIE:
+  prediction: -1 (anomaly) ou 1 (normal)
+  anomaly_score: score continu (-∞ à +∞, négatif = anomaly)
+
+SEUILS:
+  │
+  ├─ Score < -0.5 → ALERTE CRITIQUE (anomalie confirmée)
+  ├─ Score -0.5 à 0 → ATTENTION (possible anomalie)
+  └─ Score > 0 → NORMAL
+
+CODE:
+  │
+  ├─ from sklearn.ensemble import IsolationForest
+  ├─ 
+  ├─ model = IsolationForest(
+  ├─     contamination=0.1,
+  ├─     n_estimators=100,
+  ├─     random_state=42
+  ├─ )
+  ├─ 
+  ├─ # Training
+  ├─ model.fit(X_train)  # Pas besoin de y_train !
+  ├─ 
+  ├─ # Prediction
+  ├─ predictions = model.predict(X_test)  # -1 ou 1
+  ├─ scores = model.decision_function(X_test)  # score continu
+  ├─ 
+  ├─ # Exemple
+  ├─ if scores[0] < -0.5:
+  ├─     alert("Anomalie détectée!")
+  └─
+
+
+5.2 MODÈLE 2: RANDOM FOREST (Classification)
+
+CONCEPT:
+  Ensemble de 100 arbres de décision.
+  Chaque arbre vote → décision finale = mode (majorité)
+  
+EXEMPLE ARBRE:
+  if HR > 120:
+    if SpO2 < 94:
+      return CRITICAL
+    else:
+      return ATTENTION
+  else:
+    if Temp > 39:
+      return ATTENTION
+    else:
+      return STABLE
+
+PARAMÈTRES:
+  │
+  ├─ n_estimators: nombre d'arbres (100-500)
+  ├─ max_depth: profondeur max arbre (10-20)
+  ├─ min_samples_split: min samples pour split (5-10)
+  ├─ min_samples_leaf: min samples dans feuille (2-5)
+  ├─ random_state: reproducibilité
+  └─ class_weight: 'balanced' pour imbalanced data
+
+ENTRÉE:
+  X shape: (n_samples, n_features)
+  y shape: (n_samples,) → [0=Stable, 1=Attention, 2=Critical]
+
+SORTIE:
+  prediction: classe (0, 1, ou 2)
+  predict_proba: probabilités pour chaque classe
+  
+EXEMPLE:
+  │
+  ├─ Patient features: [HR=120, SpO2=93, Temp=38.5, ...]
+  ├─ Prédiction: CRITICAL (classe 2)
+  ├─ Probabilités:
+  │  ├─ Stable: 5%
+  │  ├─ Attention: 15%
+  │  └─ Critical: 80%
+  └─ Confiance: 80%
+
+CODE:
+  │
+  ├─ from sklearn.ensemble import RandomForestClassifier
+  ├─ from sklearn.model_selection import train_test_split
+  ├─ 
+  ├─ # Split data
+  ├─ X_train, X_test, y_train, y_test = train_test_split(
+  ├─     X, y, test_size=0.2, stratify=y
+  ├─ )
+  ├─ 
+  ├─ # Train
+  ├─ clf = RandomForestClassifier(
+  ├─     n_estimators=100,
+  ├─     max_depth=10,
+  ├─     class_weight='balanced',
+  ├─     random_state=42
+  ├─ )
+  ├─ clf.fit(X_train, y_train)
+  ├─ 
+  ├─ # Predict
+  ├─ y_pred = clf.predict(X_test)
+  ├─ y_proba = clf.predict_proba(X_test)
+  ├─ 
+  ├─ # Feature importance
+  ├─ importance = clf.feature_importances_
+  ├─ # Quelles features les plus importantes?
+  ├─ for fname, fimp in zip(feature_names, importance)[:5]:
+  ├─     print(f"{fname}: {fimp:.4f}")
+  └─
+
+
+5.3 MODÈLE 3: LOGISTIC REGRESSION
+
+CONCEPT:
+  Régression logistique (classification binaire).
+  Fit sigmoid curve séparant normal vs risque cardiaque.
+  
+  Sigmoid: f(x) = 1 / (1 + e^(-z))
+  où z = w·features + b
+  
+  Si f(x) > 0.5 → classe 1 (risque)
+  Si f(x) ≤ 0.5 → classe 0 (normal)
+
+PARAMÈTRES:
+  │
+  ├─ C: inverse regularization strength (plus petit = plus régularisé)
+  ├─ penalty: 'l1' ou 'l2' (type de régularisation)
+  ├─ solver: 'lbfgs', 'liblinear', 'sag'
+  ├─ max_iter: max itérations
+  └─ random_state: reproducibilité
+
+ENTRÉE:
+  X shape: (n_samples, n_features)
+  y shape: (n_samples,) → [0=Normal, 1=Cardiac_Risk]
+
+SORTIE:
+  prediction: 0 ou 1
+  predict_proba: probabilité classe 1
+
+EXEMPLE:
+  │
+  ├─ Patient HR data: [HR_mean, SDNN, HRV_pNN50, ...]
+  ├─ Prédiction: 1 (risque cardiaque)
+  ├─ Probabilité: 78%
+  ├─ Risque Score: 0.78
+  └─ Alerte: "MEDIUM - Monitorer patient"
+
+CODE:
+  │
+  ├─ from sklearn.linear_model import LogisticRegression
+  ├─ 
+  ├─ # Train
+  ├─ model = LogisticRegression(
+  ├─     C=1.0,
+  ├─     max_iter=1000,
+  ├─     penalty='l2',
+  ├─     random_state=42
+  ├─ )
+  ├─ model.fit(X_train, y_train)
+  ├─ 
+  ├─ # Predict
+  ├─ y_pred = model.predict(X_test)
+  ├─ y_proba = model.predict_proba(X_test)  # shape (n, 2)
+  ├─ risk_score = y_proba[:, 1]  # probabilité risque
+  ├─ 
+  ├─ # Coefficients (interprétabilité)
+  ├─ coefs = model.coef_[0]
+  ├─ for fname, coef in zip(feature_names, coefs):
+  ├─     direction = "↑ risque" if coef > 0 else "↓ risque"
+  ├─     print(f"{fname}: {coef:.4f} ({direction})")
+  └─
+
+
+5.4 MODÈLE 4: LSTM (Deep Learning)
+
+CONCEPT:
+  Réseau de neurones récurrent (RNN) avec LSTM cells.
+  Processus séquences temporelles long terme.
+  
+  LSTM = Long Short-Term Memory
+  ├─ Forget gate: décide quoi oublier
+  ├─ Input gate: décide quoi ajouter
+  └─ Output gate: décide quoi sortir
+  
+  Avantage: mémorise patterns à long terme (vs vanishing gradient)
+
+ARCHITECTURE:
+  │
+  Input → LSTM(64) → Dropout(0.2) → LSTM(32) → Dropout(0.2)
+    ↓
+  Dense(16) → Dense(1=SpO2_prediction)
+
+PARAMÈTRES:
+  │
+  ├─ LSTM(64): 64 unités/neurones dans première couche
+  ├─ Dropout(0.2): 20% neurones ignorés (regularisation)
+  ├─ Dense(16): couche dense 16 neurones
+  ├─ activation: 'relu' (couches cachées), linéaire (sortie)
+  ├─ optimizer: 'adam'
+  ├─ loss: 'mse' (Mean Squared Error)
+  └─ epochs: 50-100
+
+ENTRÉE:
+  X shape: (n_sequences, sequence_length, n_features)
+  Ex: (5000, 600, 2) → 5000 séquences de 10 min, 2 features
+
+SORTIE:
+  y_pred shape: (n_sequences, 1)
+  Prédit: SpO₂ dans 20 minutes
+
+EXEMPLE:
+  │
+  ├─ Current SpO₂ sequence (10 min): [96%, 95%, 94%, 93%, 92%, ...]
+  ├─ Tendance: décroissante
+  ├─ Prédiction SpO₂ (20 min futur): 87%
+  ├─ Alerte: "⚠️ Prévention! SpO₂ baissera à 87% → risque hypoxie"
+  └─ Médecin peut intervenir préventivement
+
+CODE:
+  │
+  ├─ import tensorflow as tf
+  ├─ from tensorflow.keras.models import Sequential
+  ├─ from tensorflow.keras.layers import LSTM, Dense, Dropout
+  ├─ 
+  ├─ # Build model
+  ├─ model = Sequential([
+  ├─     LSTM(64, activation='relu', input_shape=(600, 2), return_sequences=True),
+  ├─     Dropout(0.2),
+  ├─     LSTM(32, activation='relu', return_sequences=False),
+  ├─     Dropout(0.2),
+  ├─     Dense(16, activation='relu'),
+  ├─     Dense(1)  # Output: SpO2 prediction
+  ├─ ])
+  ├─ 
+  ├─ # Compile
+  ├─ model.compile(
+  ├─     optimizer='adam',
+  ├─     loss='mse',
+  ├─     metrics=['mae']
+  ├─ )
+  ├─ 
+  ├─ # Train
+  ├─ history = model.fit(
+  ├─     X_train, y_train,
+  ├─     epochs=50,
+  ├─     batch_size=32,
+  ├─     validation_split=0.2,
+  ├─     verbose=1
+  ├─ )
+  ├─ 
+  ├─ # Predict
+  ├─ future_spo2 = model.predict(X_test)
+  └─
+
+
+================================================================================
+6. PROCESSUS D'ENTRAÎNEMENT COMPLET
+================================================================================
+
+PIPELINE DÉTAILLÉ:
+
+ÉTAPE 1: Charger et nettoyer données
+└─ import pandas as pd
+   df = pd.read_csv('physionet_data.csv')
+   # Cleaning steps (voir section 3)
+
+ÉTAPE 2: Extraire features (20 features au total)
+└─ X = extract_all_features(df)  # shape (n_samples, 20)
+   y_class = df['status_label']  # 0/1/2 pour RF
+   y_risk = df['cardiac_risk_label']  # 0/1 pour LR
+
+ÉTAPE 3: Normaliser
+└─ from sklearn.preprocessing import StandardScaler
+   scaler = StandardScaler()
+   X_scaled = scaler.fit_transform(X)
+   
+   # Sauvegarder scaler pour future prediction
+   joblib.dump(scaler, 'scaler.pkl')
+
+ÉTAPE 4: Split train/test
+└─ from sklearn.model_selection import train_test_split
+   X_train, X_test, y_train_class, y_test_class = train_test_split(
+       X_scaled, y_class, test_size=0.2, stratify=y_class, random_state=42
+   )
+
+ÉTAPE 5: Cross-validation
+└─ from sklearn.model_selection import cross_val_score
+   
+   for nom, model in models.items():
+       cv_scores = cross_val_score(model, X_train, y_train_class, cv=5)
+       print(f"{nom}: {cv_scores.mean():.4f} ± {cv_scores.std():.4f}")
+   
+   # Exemple résultat:
+   # IsolationForest: 0.8923 ± 0.0234
+   # RandomForest: 0.9145 ± 0.0189
+   # LogisticRegression: 0.8734 ± 0.0312
+   # LSTM: 0.8956 ± 0.0267
+
+
+ÉTAPE 6: Hyperparameter tuning
+└─ from sklearn.model_selection import GridSearchCV
+   
+   param_grid = {
+       'n_estimators': [50, 100, 200],
+       'max_depth': [5, 10, 15],
+       'min_samples_split': [2, 5, 10]
+   }
+   
+   grid_search = GridSearchCV(RandomForestClassifier(), param_grid, cv=5)
+   grid_search.fit(X_train, y_train_class)
+   
+   print(f"Best params: {grid_search.best_params_}")
+   print(f"Best score: {grid_search.best_score_:.4f}")
+
+ÉTAPE 7: Entraîner modèles finaux
+└─ # Isolation Forest
+   if_model = IsolationForest(contamination=0.1, random_state=42)
+   if_model.fit(X_train)
+   
+   # Random Forest
+   rf_model = RandomForestClassifier(
+       n_estimators=100, max_depth=10, random_state=42
+   )
+   rf_model.fit(X_train, y_train_class)
+   
+   # Logistic Regression
+   lr_model = LogisticRegression(C=1.0, max_iter=1000, random_state=42)
+   lr_model.fit(X_train, y_train_risk)
+   
+   # LSTM
+   lstm_model = ... (voir section 5.4)
+   lstm_model.fit(X_train_seq, y_train_seq, epochs=50, batch_size=32)
+
+ÉTAPE 8: Évaluer sur test set
+└─ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+   
+   # Pour chaque modèle:
+   y_pred = model.predict(X_test)
+   
+   accuracy = accuracy_score(y_test, y_pred)
+   precision = precision_score(y_test, y_pred, average='weighted')
+   recall = recall_score(y_test, y_pred, average='weighted')
+   f1 = f1_score(y_test, y_pred, average='weighted')
+   
+   print(f"Accuracy:  {accuracy:.4f}")
+   print(f"Precision: {precision:.4f}")
+   print(f"Recall:    {recall:.4f}")
+   print(f"F1:        {f1:.4f}")
+
+ÉTAPE 9: Sauvegarder modèles
+└─ import joblib
+   
+   joblib.dump(if_model, 'isolation_forest.pkl')
+   joblib.dump(rf_model, 'random_forest.pkl')
+   joblib.dump(lr_model, 'logistic_regression.pkl')
+   lstm_model.save('lstm_model.h5')
+
+
+================================================================================
+7. MÉTRIQUES D'ÉVALUATION
+================================================================================
+
+METRICS DEFINITION:
+
+┌─────────────────────────────────────────────────────────┐
+│ CONFUSION MATRIX                                        │
+├─────────────────────────────────────────────────────────┤
+│                  Predicted Positive    Predicted Negative│
+│ Actual Positive      TP                    FN           │
+│ Actual Negative      FP                    TN           │
+└─────────────────────────────────────────────────────────┘
+
+où:
+  TP (True Positive) = correctement prédit anomalie
+  FP (False Positive) = fausse alerte
+  TN (True Negative) = correctement prédit normal
+  FN (False Negative) = anomalie manquée (CRITIQUE!)
+
+METRICS PRINCIPALES:
+
+1. ACCURACY
+   Définition: (TP + TN) / (TP + TN + FP + FN)
+   Ce qu'il mesure: % de prédictions correctes
+   Plage: 0-1 (0-100%)
+   Objectif: > 0.85
+   
+   Problème: trompeur pour imbalanced classes
+   Ex: 95% healthy → model dit "always healthy" → 95% accuracy
+
+2. PRECISION
+   Définition: TP / (TP + FP)
+   Ce qu'il mesure: % de prédictions positives correctes
+   Plage: 0-1
+   Objectif: > 0.80
+   
+   Interprétation: "Si alerte déclenchée, probabilité vraie?"
+   Élevé = peu de fausses alarmes (bon pour clinique)
+   
+   Exemple:
+   → Model prédit 100 anomalies → 80 vraies, 20 fausses
+   → Precision = 80/100 = 0.80 (80%)
+
+3. RECALL (Sensibilité)
+   Définition: TP / (TP + FN)
+   Ce qu'il mesure: % d'anomalies détectées
+   Plage: 0-1
+   Objectif: > 0.75
+   
+   Interprétation: "% anomalies réelles trouvées?"
+   Élevé = détecte vraies anomalies (important pour sécurité)
+   
+   Exemple:
+   → 100 anomalies réelles → model en détecte 80
+   → Recall = 80/100 = 0.80 (80%)
+   
+   Trade-off: Recall ↑ → FP ↑, Precision ↓
+
+4. F1-SCORE
+   Définition: 2 * (Precision * Recall) / (Precision + Recall)
+   Ce qu'il mesure: Balance Precision-Recall
+   Plage: 0-1
+   Objectif: > 0.80
+   
+   Avantage: meilleur pour imbalanced data
+   Exemple: Precision=0.80, Recall=0.75 → F1 = 0.775
+
+5. ROC-AUC
+   Définition: Area Under ROC Curve
+   Ce qu'il mesure: performance sur tous seuils de classification
+   Plage: 0-1 (0.5 = random, 1 = perfect)
+   Objectif: > 0.85
+   
+   Avantage: insensible au threshold
+   ROC curve: True Positive Rate vs False Positive Rate
+   
+   Interprétation:
+   → 0.5: model = random guess
+   → 0.7: acceptable
+   → 0.85: bon
+   → 0.95: excellent
+   → 1.0: perfect
+
+MATRICE DE CONFUSION MÉDICAL:
+Cas spécifique pour medical alerts
+
+             Patient Sain    Patient Malade
+Alert        FP (fausse)     TP (bon)      ← important
+No Alert     TN (bon)        FN (manqué!)  ← CRITIQUE
+
+OBJECTIFS MÉDICAUX:
+  FN (manquer une anomalie) = plus grave que FP (fausse alerte)
+  → Recall (détection) prioritaire sur Precision (fausses alarmes)
+  → Mais équilibre important (trop alertes = ignorées)
+
+CODE ÉVALUATION:
+│
+├─ from sklearn.metrics import (
+├─     accuracy_score, precision_score, recall_score, f1_score,
+├─     roc_auc_score, confusion_matrix, classification_report
+├─ )
+├─ 
+├─ y_pred = model.predict(X_test)
+├─ y_pred_proba = model.predict_proba(X_test)[:, 1]
+├─ 
+├─ print("=== METRICS ===")
+├─ print(f"Accuracy:  {accuracy_score(y_test, y_pred):.4f}")
+├─ print(f"Precision: {precision_score(y_test, y_pred):.4f}")
+├─ print(f"Recall:    {recall_score(y_test, y_pred):.4f}")
+├─ print(f"F1-Score:  {f1_score(y_test, y_pred):.4f}")
+├─ print(f"ROC-AUC:   {roc_auc_score(y_test, y_pred_proba):.4f}")
+├─ 
+├─ print("\n=== CONFUSION MATRIX ===")
+├─ cm = confusion_matrix(y_test, y_pred)
+├─ print(cm)
+├─ 
+├─ print("\n=== CLASSIFICATION REPORT ===")
+├─ print(classification_report(y_test, y_pred, target_names=['Normal', 'Risk']))
+└─
+
+
+================================================================================
+8. DÉPLOIEMENT EN PRODUCTION
+================================================================================
+
+8.1 Sauvegarde des Modèles Entraînés
+
+Format de sauvegarde:
+├─ Sklearn models → .pkl (pickle format)
+├─ LSTM/TensorFlow → .h5 ou .pb (SavedModel)
+├─ Scaler → .pkl (pour normalisation future)
+
+CODE:
+│
+├─ import joblib
+├─ import tensorflow as tf
+├─ 
+├─ # Sklearn models
+├─ joblib.dump(rf_model, 'models/random_forest.pkl')
+├─ joblib.dump(lr_model, 'models/logistic_regression.pkl')
+├─ joblib.dump(if_model, 'models/isolation_forest.pkl')
+├─ joblib.dump(scaler, 'models/scaler.pkl')
+├─ 
+├─ # LSTM model
+├─ lstm_model.save('models/lstm_model.h5')
+├─ # ou
+├─ tf.keras.models.save_model(lstm_model, 'models/lstm_savedmodel')
+└─
+
+
+8.2 API Backend (Flask)
+
+Serveur Flask qui expose les modèles via endpoints HTTP.
+
+```python
+from flask import Flask, request, jsonify
+import joblib
+import numpy as np
+import tensorflow as tf
+
+app = Flask(__name__)
+
+# Load models
+rf_model = joblib.load('models/random_forest.pkl')
+lr_model = joblib.load('models/logistic_regression.pkl')
+if_model = joblib.load('models/isolation_forest.pkl')
+lstm_model = tf.keras.models.load_model('models/lstm_model.h5')
+scaler = joblib.load('models/scaler.pkl')
+
+
+@app.route('/predict', methods=['POST'])
+def predict():
+    """
+    Endpoint: POST /predict
+    Body: {
+        "patient_id": "P001",
+        "features": [95, 0.96, 37.2, 12.5, ...]  # 20 features
+    }
+    """
+    try:
+        data = request.json
+        patient_id = data['patient_id']
+        features = np.array(data['features']).reshape(1, -1)
+        
+        # Normalize
+        features_scaled = scaler.transform(features)
+        
+        # Predict all models
+        predictions = {}
+        
+        # 1. Anomaly detection
+        anomaly_score = if_model.decision_function(features_scaled)[0]
+        predictions['anomaly'] = {
+            'score': float(anomaly_score),
+            'is_anomaly': bool(anomaly_score < -0.5)
+        }
+        
+        # 2. Patient status
+        status = rf_model.predict(features_scaled)[0]
+        status_proba = rf_model.predict_proba(features_scaled)[0]
+        predictions['status'] = {
+            'class': ['Stable', 'Attention', 'Critical'][status],
+            'probabilities': {
+                'stable': float(status_proba[0]),
+                'attention': float(status_proba[1]),
+                'critical': float(status_proba[2])
+            }
+        }
+        
+        # 3. Cardiac risk
+        risk_proba = lr_model.predict_proba(features_scaled)[0][1]
+        predictions['cardiac_risk'] = {
+            'probability': float(risk_proba),
+            'alert_level': 'HIGH' if risk_proba > 0.7 else 'MEDIUM' if risk_proba > 0.5 else 'LOW'
+        }
+        
+        return jsonify({
+            'patient_id': patient_id,
+            'predictions': predictions,
+            'timestamp': str(datetime.now())
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+
+@app.route('/predict_lstm', methods=['POST'])
+def predict_lstm():
+    """
+    Endpoint: POST /predict_lstm
+    Body: {
+        "patient_id": "P001",
+        "sequence": [...600 values...]  # 10-minute window
+    }
+    """
+    try:
+        data = request.json
+        sequence = np.array(data['sequence']).reshape(1, 600, 2)
+        
+        # Predict
+        future_spo2 = lstm_model.predict(sequence)[0][0]
+        
+        # Generate alert if necessary
+        alert = None
+        if future_spo2 < 90:
+            alert = "⚠️ Risk hypoxia detected in 20 minutes"
+        
+        return jsonify({
+            'patient_id': data['patient_id'],
+            'predicted_spo2': float(future_spo2),
+            'alert': alert
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000, debug=False)
+```
+
+
+8.3 Configuration Serveur Backend
+
+Structure de dossiers:
+```
+backend/
+├── app.py                 # Flask main app
+├── models/
+│   ├── random_forest.pkl
+│   ├── logistic_regression.pkl
+│   ├── isolation_forest.pkl
+│   ├── lstm_model.h5
+│   └── scaler.pkl
+├── utils/
+│   ├── feature_engineering.py
+│   └── data_preprocessing.py
+├── requirements.txt
+└── config.py
+```
+
+requirements.txt:
+```
+Flask==2.0.1
+scikit-learn==0.24.2
+numpy==1.21.0
+pandas==1.3.0
+tensorflow==2.6.0
+joblib==1.0.1
+scipy==1.7.0
+```
+
+Lancement serveur:
+```
+pip install -r requirements.txt
+python app.py
+```
+
+
+================================================================================
+9. INFÉRENCE TEMPS RÉEL (Du capteur au dashboard)
+================================================================================
+
+9.1 Pipeline Temps Réel
+
+FLUX DONNÉES:
+```
+IoT Gateway (Capteurs)
+    ↓ (5 sec)
+Backend API
+    ↓
+Feature Extraction
+    ↓
+Model Inference
+    ↓
+Alert Decision
+    ↓
+WebSocket → Dashboard
+    ↓ (mise à jour UI < 1 sec)
+Médecin voit alerte
+```
+
+9.2 Code Temps Réel
+
+```python
+from flask import Flask
+from flask_socketio import SocketIO, emit
+import threading
+import time
+import json
+
+app = Flask(__name__)
+socketio = SocketIO(app)
+
+def process_incoming_data():
+    """Reçoit données IoT, trace modèles, envoie dashboard"""
+    
+    while True:
+        # 1. Receive from IoT gateway
+        incoming = receive_from_iot_gateway()  # blocking call
+        
+        patient_id = incoming['patient_id']
+        hr = incoming['hr']
+        spo2 = incoming['spo2']
+        temp = incoming['temp']
+        ecg_raw = incoming['ecg_signal']
+        
+        # 2. Extract features
+        features = extract_features({
+            'hr': hr,
+            'spo2': spo2,
+            'temp': temp,
+            'ecg': ecg_raw
+        })
+        
+        # 3. Normalize
+        features_scaled = scaler.transform([features])
+        
+        # 4. Inference all models
+        anomaly_score = if_model.decision_function(features_scaled)[0]
+        status, status_proba = rf_model.predict(features_scaled), rf_model.predict_proba(features_scaled)[0]
+        cardiac_risk = lr_model.predict_proba(features_scaled)[0][1]
+        
+        # 5. Decision logic for alerts
+        alerts = []
+        
+        if anomaly_score < -0.5:
+            alerts.append({
+                'type': 'ANOMALY',
+                'severity': 'HIGH',
+                'message': 'Unusual signal pattern detected'
+            })
+        
+        if status == 2:  # Critical
+            alerts.append({
+                'type': 'STATUS',
+                'severity': 'CRITICAL',
+                'message': 'Patient in critical state'
+            })
+        
+        if cardiac_risk > 0.7:
+            alerts.append({
+                'type': 'CARDIAC',
+                'severity': 'MEDIUM',
+                'message': f'Cardiac risk: {cardiac_risk*100:.1f}%'
+            })
+        
+        # 6. Update database
+        update_patient_record(patient_id, {
+            'hr': hr,
+            'spo2': spo2,
+            'temp': temp,
+            'status': ['Stable', 'Attention', 'Critical'][status],
+            'anomaly_score': anomaly_score,
+            'cardiac_risk': cardiac_risk,
+            'alerts': alerts,
+            'timestamp': datetime.now()
+        })
+        
+        # 7. Emit to dashboard via WebSocket
+        socketio.emit('patient_update', {
+            'patient_id': patient_id,
+            'data': {
+                'hr': hr,
+                'spo2': spo2,
+                'temp': temp,
+                'status': ['Stable', 'Attention', 'Critical'][status],
+                'alerts': alerts
+            }
+        }, room='dashboard')
+        
+        time.sleep(5)  # Receive every 5 seconds
+
+
+# Start background thread
+threading.Thread(target=process_incoming_data, daemon=True).start()
+
+
+@socketio.on('connect')
+def handle_connect():
+    emit('response', {'data': 'Dashboard connected'})
+
+
+if __name__ == '__main__':
+    socketio.run(app, host='0.0.0.0', port=5000, debug=False)
+```
+
+
+================================================================================
+10. CODE PYTHON COMPLET (Template)
+================================================================================
+
+Ce code peut être copié et adapté pour votre projet:
+
+```python
+# ============================================================
+# SMART HOSPITAL - AI MODELS TRAINING
+# Complete template
+# ============================================================
+
+import pandas as pd
+import numpy as np
+import joblib
+from datetime import datetime
+
+# Sklearn
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
+from sklearn.ensemble import IsolationForest, RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, confusion_matrix, classification_report
+
+# TensorFlow
+import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import LSTM, Dense, Dropout
+from scipy.fft import fft, fftfreq
+from scipy import stats
+from scipy.signal import find_peaks
+
+
+# ============================================================
+# 1. FEATURE ENGINEERING FUNCTIONS
+# ============================================================
+
+def extract_time_features(signal, window_size=60):
+    """Extract time-domain features"""
+    features = {
+        'mean': np.mean(signal),
+        'std': np.std(signal),
+        'min': np.min(signal),
+        'max': np.max(signal),
+        'range': np.max(signal) - np.min(signal),
+        'variance': np.var(signal),
+        'skewness': stats.skew(signal),
+        'kurtosis': stats.kurtosis(signal)
+    }
+    return features
+
+
+def extract_hrv_features(rr_intervals):
+    """Extract Heart Rate Variability features"""
+    features = {}
+    
+    # SDNN
+    features['SDNN'] = np.std(rr_intervals) * 1000  # ms
+    
+    # RMSSD
+    features['RMSSD'] = np.sqrt(np.mean(np.diff(rr_intervals)**2)) * 1000
+    
+    # pNN50
+    nn50 = np.sum(np.abs(np.diff(rr_intervals)) > 0.05)
+    features['pNN50'] = (nn50 / len(rr_intervals)) * 100 if len(rr_intervals) > 0 else 0
+    
+    return features
+
+
+def extract_frequency_features(signal, sampling_rate=250):
+    """Extract frequency-domain features using FFT"""
+    N = len(signal)
+    fft_values = np.abs(fft(signal))
+    freqs = fftfreq(N, 1/sampling_rate)[:N//2]
+    
+    features = {}
+    
+    # Dominant frequency
+    idx_dom = np.argmax(fft_values[:N//2])
+    features['dominant_freq'] = float(freqs[idx_dom]) if idx_dom > 0 else 0
+    
+    # Power in bands
+    power_0_5 = np.sum(fft_values[(freqs >= 0) & (freqs <= 5)])
+    power_5_15 = np.sum(fft_values[(freqs > 5) & (freqs <= 15)])
+    features['power_0_5Hz'] = float(power_0_5)
+    features['power_5_15Hz'] = float(power_5_15)
+    features['power_ratio'] = float(power_0_5 / (power_5_15 + 1e-6))
+    
+    # Spectral entropy
+    psd = fft_values**2 / (sampling_rate * N)
+    psd_norm = psd / (np.sum(psd) + 1e-10)
+    entropy = -np.sum(psd_norm * np.log2(psd_norm + 1e-10))
+    features['spectral_entropy'] = float(entropy)
+    
+    return features
+
+
+def extract_all_features(patient_data):
+    """
+    Extract all 20 features from patient data
+    patient_data = {
+        'hr': [list of HR values],
+        'spo2': [list of SpO2 values],
+        'temp': [list of temperature values],
+        'ecg': [list of ECG values]
+    }
+    """
+    features_dict = {}
+    
+    # Time-domain features (8)
+    hr_features = extract_time_features(patient_data['hr'])
+    spo2_features = extract_time_features(patient_data['spo2'])
+    
+    features_dict['HR_mean'] = hr_features['mean']
+    features_dict['HR_std'] = hr_features['std']
+    features_dict['SpO2_mean'] = spo2_features['mean']
+    features_dict['SpO2_std'] = spo2_features['std']
+    features_dict['Temp_mean'] = np.mean(patient_data['temp'])
+    features_dict['Temp_std'] = np.std(patient_data['temp'])
+    
+    # Trend
+    x = np.arange(len(patient_data['hr']))
+    if len(x) > 1:
+        hr_trend = np.polyfit(x, patient_data['hr'], 1)[0]
+        spo2_trend = np.polyfit(x, patient_data['spo2'], 1)[0]
+    else:
+        hr_trend = spo2_trend = 0
+    features_dict['HR_trend'] = hr_trend
+    features_dict['SpO2_trend'] = spo2_trend
+    
+    # HRV features (3)
+    # Simplified: using HR differences as proxy for RR intervals
+    rr_intervals = np.diff(patient_data['hr']) / patient_data['hr'][:-1] if len(patient_data['hr']) > 1 else np.array([0])
+    hrv_features = extract_hrv_features(np.abs(rr_intervals) + 1)  # avoid division issues
+    features_dict.update({"HRV_" + k: v for k, v in hrv_features.items()})
+    
+    # Frequency features (4)
+    freq_features = extract_frequency_features(patient_data['ecg'])
+    features_dict.update({"ECG_" + k: v for k, v in freq_features.items()})
+    
+    return features_dict
+
+
+# ============================================================
+# 2. DATA LOADING & PREPROCESSING
+# ============================================================
+
+def load_and_preprocess_data(csv_file):
+    """Load and clean data from CSV"""
+    df = pd.read_csv(csv_file)
+    
+    # Handle missing values
+    df = df.interpolate(method='linear')
+    
+    # Remove outliers
+    for col in ['HR', 'SpO2', 'Temperature']:
+        Q1 = df[col].quantile(0.25)
+        Q3 = df[col].quantile(0.75)
+        IQR = Q3 - Q1
+        mask = (df[col] < Q1 - 1.5*IQR) | (df[col] > Q3 + 1.5*IQR)
+        df = df[~mask]
+    
+    return df
+
+
+# ============================================================
+# 3. TRAINING PIPELINE
+# ============================================================
+
+def train_all_models(X_train, X_test, y_train_classification, y_train_risk, y_test_classification, y_test_risk):
+    """Train all 4 models and return trained models + metrics"""
+    
+    results = {}
+    
+    # -------- Model 1: Isolation Forest --------
+    print("\n[1/4] Training Isolation Forest...")
+    if_model = IsolationForest(contamination=0.1, n_estimators=100, random_state=42)
+    if_model.fit(X_train)
+    
+    if_pred = if_model.predict(X_test)
+    if_anomaly_scores = if_model.decision_function(X_test)
+    
+    results['IsolationForest'] = {
+        'model': if_model,
+        'predictions': if_pred,
+        'scores': if_anomaly_scores,
+        'note': 'Anomaly detection (-1=anomaly, 1=normal)'
+    }
+    
+    # -------- Model 2: Random Forest --------
+    print("[2/4] Training Random Forest...")
+    rf_model = RandomForestClassifier(
+        n_estimators=100,
+        max_depth=10,
+        min_samples_split=5,
+        class_weight='balanced',
+        random_state=42
+    )
+    rf_model.fit(X_train, y_train_classification)
+    
+    y_pred_rf = rf_model.predict(X_test)
+    y_proba_rf = rf_model.predict_proba(X_test)
+    
+    acc_rf = accuracy_score(y_test_classification, y_pred_rf)
+    prec_rf = precision_score(y_test_classification, y_pred_rf, average='weighted')
+    rec_rf = recall_score(y_test_classification, y_pred_rf, average='weighted')
+    f1_rf = f1_score(y_test_classification, y_pred_rf, average='weighted')
+    
+    print(f"  Accuracy: {acc_rf:.4f} | Precision: {prec_rf:.4f} | Recall: {rec_rf:.4f} | F1: {f1_rf:.4f}")
+    
+    results['RandomForest'] = {
+        'model': rf_model,
+        'predictions': y_pred_rf,
+        'probabilities': y_proba_rf,
+        'metrics': {'accuracy': acc_rf, 'precision': prec_rf, 'recall': rec_rf, 'f1': f1_rf},
+        'feature_importance': list(zip(range(len(rf_model.feature_importances_)), rf_model.feature_importances_))
+    }
+    
+    # -------- Model 3: Logistic Regression --------
+    print("[3/4] Training Logistic Regression...")
+    lr_model = LogisticRegression(C=1.0, max_iter=1000, random_state=42, penalty='l2')
+    lr_model.fit(X_train, y_train_risk)
+    
+    y_pred_lr = lr_model.predict(X_test)
+    y_proba_lr = lr_model.predict_proba(X_test)[:, 1]
+    
+    acc_lr = accuracy_score(y_test_risk, y_pred_lr)
+    prec_lr = precision_score(y_test_risk, y_pred_lr)
+    rec_lr = recall_score(y_test_risk, y_pred_lr)
+    f1_lr = f1_score(y_test_risk, y_pred_lr)
+    roc_lr = roc_auc_score(y_test_risk, y_proba_lr)
+    
+    print(f"  Accuracy: {acc_lr:.4f} | Precision: {prec_lr:.4f} | Recall: {rec_lr:.4f}")
+    print(f"  F1: {f1_lr:.4f} | ROC-AUC: {roc_lr:.4f}")
+    
+    results['LogisticRegression'] = {
+        'model': lr_model,
+        'predictions': y_pred_lr,
+        'probabilities': y_proba_lr,
+        'metrics': {'accuracy': acc_lr, 'precision': prec_lr, 'recall': rec_lr, 'f1': f1_lr, 'roc_auc': roc_lr}
+    }
+    
+    # -------- Model 4: LSTM (if needed) --------
+    print("[4/4] Placeholder for LSTM (requires sequence data)")
+    # Implementation depends on sequence data structure
+    
+    return results
+
+
+# ============================================================
+# 4. SAVE MODELS
+# ============================================================
+
+def save_models(models_dict, scaler, output_dir='./models/'):
+    """Save all trained models"""
+    import os
+    os.makedirs(output_dir, exist_ok=True)
+    
+    joblib.dump(models_dict['RandomForest']['model'], f'{output_dir}random_forest.pkl')
+    joblib.dump(models_dict['LogisticRegression']['model'], f'{output_dir}logistic_regression.pkl')
+    joblib.dump(models_dict['IsolationForest']['model'], f'{output_dir}isolation_forest.pkl')
+    joblib.dump(scaler, f'{output_dir}scaler.pkl')
+    
+    print(f"✓ Models saved to {output_dir}")
+
+
+# ============================================================
+# MAIN EXECUTION
+# ============================================================
+
+if __name__ == '__main__':
+    print("="*60)
+    print("SMART HOSPITAL - AI MODELS TRAINING")
+    print("="*60)
+    
+    # Load data
+    print("\n[Step 1] Loading data...")
+    df = load_and_preprocess_data('data.csv')
+    print(f"✓ Loaded {len(df)} samples")
+    
+    # Prepare features and labels
+    print("\n[Step 2] Extracting features...")
+    # (Simplified - in practice, extract all rows)
+    # X = np.array([extract_all_features({...}) for each patient])
+    # For this template, assume X is already prepared
+    
+    # Normalize
+    print("\n[Step 3] Normalizing features...")
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+    
+    # Split
+    print("[Step 4] Splitting train/test (80/20)...")
+    X_train, X_test, y_train_class, y_test_class, y_train_risk, y_test_risk = train_test_split(
+        X_scaled, y_classification, y_risk,
+        test_size=0.2, random_state=42, stratify=y_classification
+    )
+    
+    # Train
+    print("\n[Step 5] Training models...")
+    results = train_all_models(X_train, X_test, y_train_class, y_train_risk, y_test_class, y_test_risk)
+    
+    # Save
+    print("\n[Step 6] Saving models...")
+    save_models(results, scaler)
+    
+    print("\n" + "="*60)
+    print("TRAINING COMPLETE ✓")
+    print("="*60)
+```
+
+================================================================================
+FIN DU DOCUMENT
+================================================================================
+Version: 1.0
+Date: Février 2026
+Status: Détail complet pour implémentation

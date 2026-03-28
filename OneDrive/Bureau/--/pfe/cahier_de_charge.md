@@ -1,0 +1,393 @@
+# CAHIER DE CHARGES
+
+## SYSTÈME INTELLIGENT DE SURVEILLANCE DES PATIENTS EN MILIEU HOSPITALIER
+
+---
+
+## 1. CONTEXTE ET JUSTIFICATION
+
+Le projet "Smart Hospital" propose la conception et l'implémentation d'un système intelligent pour la surveillance continue et en temps réel de la santé des patients en milieu hospitalier.
+
+Ce système intègre trois domaines technologiques majeurs :
+- **Internet des Objets (IoT)** : capteurs médicaux intelligents
+- **Intelligence Artificielle (IA)** : modèles de prédiction et détection
+- **Développement logiciel** : plateforme de gestion et tableau de bord
+
+### Justification :
+- Réduction du temps de réaction face aux anomalies
+- Prévention des situations critiques par détection précoce
+- Amélioration de la sécurité des patients
+- Support décisionnel pour le personnel médical
+- Prototype académique pour la recherche en e-santé
+
+---
+
+## 2. OBJECTIFS GÉNÉRAUX
+
+### 2.1 Objectif Principal
+Créer un système de surveillance patients intelligente qui combine capteurs IoT, analyse de données en temps réel et modèles d'IA pour assister le personnel médical dans la prise de décision clinique tout en améliorant la sécurité des patients.
+
+### 2.2 Objectifs Spécifiques
+- Collecter en continu les signes vitaux des patients via des capteurs IoT
+- Transmettre les données à un système central via une passerelle IoT
+- Stocker et analyser les données en temps réel
+- Fournir un tableau de bord permettant aux médecins de surveiller plusieurs patients simultanément
+- Générer des alertes intelligentes basées sur des seuils personnalisés
+- Intégrer des modèles d'IA pour la prédiction de risques et la détection d'anomalies
+- Fournir un support décisionnel (suggestions recommandées par l'IA)
+- Assurer que la décision finale reste responsabilité du médecin
+
+---
+
+## 3. SPÉCIFICATIONS FONCTIONNELLES
+
+### 3.1 Acquisition et Transmission des Données
+Le système doit :
+- Collecter les signes vitaux suivants via des capteurs IoT :
+  - Fréquence cardiaque (HR) → Électrocardiogramme (ECG)
+  - Saturation en oxygène (SpO₂)
+  - Température corporelle
+  - Signal ECG (forme d'onde basique ou avancée)
+- Transmettre les données à une passerelle IoT
+- Convertir et envoyer les données au serveur backend
+- Assurer une transmission fiable et sécurisée
+
+### 3.2 Stockage et Persistance
+Le système doit :
+- Stocker les données de chaque patient avec horodatage
+- Conserver l'historique complet des mesures
+- Permettre l'accès aux données historiques (tendance heure/jour/semaine)
+- Gérer les données de plusieurs patients simultanément
+
+### 3.3 Tableau de Bord Médecin
+Le tableau de bord doit offrir :
+
+#### a) Visualisation en temps réel :
+- Vue d'ensemble de tous les patients surveillés
+- Affichage direct des valeurs actuelles de signes vitaux
+- Graphique en direct de la forme d'onde ECG
+
+#### b) Données historiques et tendances :
+- Graphiques sur 1 heure, 24 heures, 7 jours
+- Analyse de l'efficacité des traitements
+- Comparaison des valeurs avec les normes
+
+#### c) Alertes et notifications :
+- Affichage des alertes en cours
+- Historique des alertes déclenchées
+- Raison et contexte de chaque alerte
+
+#### d) Classification des patients :
+- 🟢 **Stable** : toutes les valeurs dans les normes
+- 🟠 **Attention requise** : certaines valeurs anormales
+- 🔴 **Critique** : risque immédiat pour le patient
+
+#### e) Contrôle et personnalisation :
+- Définir des seuils d'alerte personnalisés par patient
+- Ajouter des notes médicales
+- Ajuster la fréquence de surveillance
+- Définir le niveau de priorité du patient
+
+### 3.4 Système d'Alertes
+Le système doit :
+- Prévoir des seuils configurables pour chaque patient :
+  - Fréquence cardiaque trop élevée (tachycardie)
+  - Fréquence cardiaque trop basse (bradycardie)
+  - SpO₂ < 92%
+  - Température corporelle > 38°C
+  - Patterns anormaux ECG
+- Générer des alertes via plusieurs canaux :
+  - Notification sur le tableau de bord
+  - Email
+  - SMS
+  - Application mobile
+- Urgence : alerter avant que la situation ne devienne critique
+
+### 3.5 Intelligence Artificielle et Support Décisionnel
+Le système doit :
+- Prédire le risque cardiaque (tachycardie, bradycardie)
+- Prédire le risque de détresse respiratoire
+- Détecter précocement la détérioration de l'état du patient
+- Fournir des estimations de risque (ex: "78% de risque d'hypoxie en 30 min")
+- Classifier automatiquement l'état du patient
+- Fournir des suggestions au médecin
+- Assurer que la décision finale reste responsabilité du médecin
+
+### 3.6 Surveillance Multi-patient (Style ICU)
+Le système doit :
+- Permettre la surveillance simultanée de plusieurs patients
+- Gérer les priorités et urgences
+- Fournir une vue d'ensemble du service/unité
+
+### 3.7 Surveillance à Distance
+Le système doit :
+- Permettre le monitoring en dehors du lieu de travail
+- Accès sécurisé via authentification
+- Application mobile ou web responsive
+
+### 3.8 Export et Rapports
+Le système doit :
+- Exporter les données en format PDF
+- Exporter les données en format CSV
+- Générer des rapports globaux
+
+---
+
+## 4. ARCHITECTURE TECHNIQUE
+
+### 4.1 Architecture Générale
+
+```
+    Patients
+       ↓
+    [CAPTEURS IoT]
+       ↓
+    [PASSERELLE IoT]
+       ↓
+    [BACKEND] ← Serveur Flask/FastAPI
+       ↓
+    [MOTEUR IA] ← Modèles de ML
+       ↓
+    [TABLEAU DE BORD] ← Web/Mobile
+```
+
+### 4.2 Composants Principaux
+
+#### a) Couche Capteurs
+- Capteurs ECG
+- Capteurs SpO₂
+- Capteurs température
+- Communication sans fil (WiFi/Bluetooth/LoRaWAN)
+
+#### b) Passerelle IoT
+- Collecte les données des capteurs
+- Synchronisation temps réel
+- Transmission sécurisée au backend
+
+#### c) Serveur Backend
+- Framework : Flask ou FastAPI (Python)
+- Base de données : PostgreSQL ou MongoDB
+- API RESTful pour la communication
+- Gestion des utilisateurs et authentification
+
+#### d) Moteur IA
+- Prétraitement des données
+- Extraction de features
+- Modèles de prédiction
+- Évaluation et inférence en temps réel
+
+#### e) Tableau de Bord (Frontend)
+- Interface web (React, Vue.js ou Angular)
+- Réactivité en temps réel (WebSockets)
+- Responsive pour mobile
+- Visualisation graphique (charts, graphs)
+
+---
+
+## 5. SPÉCIFICATIONS TECHNIQUES
+
+### 5.1 Modèles d'IA Sélectionnés
+- **Isolation Forest** : détection d'anomalies
+- **Random Forest** : classification d'état patient
+- **Logistic Regression** : prédiction de risque binaire
+- **LSTM** (Long Short-Term Memory) : analyse de séries temporelles
+
+### 5.2 Données et Datasets
+- **PhysioNet** (MIT-BIH, MIMIC) : données publiques et académiques
+- **Kaggle Datasets** : données sanitaires publiques
+- **Données synthétiques** : simulées pour préserver la confidentialité
+
+### 5.3 Approche de Développement IA
+- Fine-tuning de modèles existants (plutôt que training from scratch)
+- Justification : sensibilité des données médicales et disponibilité limitée
+- Validation croisée
+- Métriques : Accuracy, Precision, Recall, F1-Score, ROC-AUC
+
+### 5.4 Matériel Requis
+- Pas de GPU haute performance exigé
+- Ordinateur standard suffisant
+- Google Colab pour le training (gratuit)
+- Serveur backend : machine standard ou cloud
+
+### 5.5 Technologies Recommandées
+
+**Backend :**
+- Python 3.8+
+- Flask ou FastAPI
+- Redis (cache temps réel)
+- PostgreSQL ou MongoDB
+
+**IA/ML :**
+- Pandas, NumPy
+- Scikit-learn
+- TensorFlow/PyTorch (pour LSTM)
+- Matplotlib, Seaborn (visualisation)
+
+**Frontend :**
+- React / Vue.js / Angular
+- Chart.js / Plotly (graphiques)
+- Material Design ou Bootstrap
+- WebSockets (temps réel)
+
+**Déploiement :**
+- Docker (containerization)
+- Kubernetes (orchestration optionnelle)
+- Cloud : AWS, Azure, GCP, ou on-premise
+
+---
+
+## 6. CONTRAINTES ET LIMITATIONS IDENTIFIÉES
+
+Le système reconnaît et documente les limitations suivantes :
+
+### ⚠️ Fiabilité des capteurs
+- **Limitation** : défaillance possible des capteurs
+- **Amélioration future** : système de détection des pannes
+
+### ⚠️ Certification médicale
+- **Limitation** : pas de certification médicale officielle (prototype académique)
+- **Amélioration future** : conformité réglementaire avec validation clinique
+
+### ⚠️ Datasets limités
+- **Limitation** : disponibilité restreinte de données médicales réelles
+- **Amélioration future** : intégration de datasets plus larges
+
+### ⚠️ Faux positifs / Faux négatifs
+- **Limitation** : possibilité d'alertes incorrectes
+- **Amélioration future** : affinage des seuils et modèles
+
+### ⚠️ Cybersécurité
+- **Limitation** : données médicales sensibles doivent être protégées
+- **Amélioration future** : chiffrement bout-à-bout, audit de sécurité
+
+### ⚠️ Latence réseau
+- **Limitation** : délai de transmission possible en cas réseau instable
+- **Amélioration future** : optimisation et cache local
+
+---
+
+## 7. VALEUR AJOUTÉE DU PROJET
+
+Bien que des systèmes similaires existent en milieu hospitalier (Philips IntelliVue, GE Healthcare, monitoring à distance), notre projet ajoute de la valeur par :
+
+1. **IA au lieu de seuils fixes** : Adaptation intelligente, pas de règles rigides
+2. **Monitoring personnalisé** : Paramètres spécifiques à chaque patient
+3. **Coût bas & Open-Source** : Accessible aux petits hôpitaux et pays en développement
+4. **IA Expliquable** : Compréhension des recommandations (pas de "boîte noire")
+5. **Prototype académique rigoureux** : Fondement solide pour la recherche future
+
+---
+
+## 8. PROCESSUS DE DÉVELOPPEMENT
+
+### Phase 1 : Prétraitement des données
+- Nettoyage des données
+- Normalisation
+- Gestion des valeurs manquantes
+
+### Phase 2 : Extraction de features
+- Analyse temps-fréquence (FFT)
+- Statistics descriptives
+- Métriques de variabilité
+
+### Phase 3 : Entraînement des modèles
+- Split train/test (70/30 ou 80/20)
+- Validation croisée k-fold
+- Hyperparamètre tuning
+
+### Phase 4 : Évaluation
+- Métriques : Accuracy, Precision, Recall, F1, ROC-AUC
+- Matrice de confusion
+- Analyse des cas d'erreur
+
+### Phase 5 : Déploiement
+- Intégration au backend
+- Inférence en temps réel
+- Monitoring en production
+
+---
+
+## 9. CONFIGURATION IA/ML PROPOSÉE
+
+### 📊 Anomaly Detection
+- **Modèle** : Isolation Forest
+- **Entrée** : signaux en temps réel
+- **Sortie** : Score d'anomalie (0-1)
+
+### 🎯 Classification de l'état du patient
+- **Modèle** : Random Forest
+- **Entrée** : features des signes vitaux
+- **Sortie** : Classe (Stable / Attention / Critique)
+
+### 📈 Prédiction de risque cardiaque
+- **Modèle** : Logistic Regression
+- **Entrée** : HR, ECG features
+- **Sortie** : Probabilité de tachycardie/bradycardie
+
+### ⏱️ Prédiction respiratoire
+- **Modèle** : LSTM
+- **Entrée** : Séquence SpO₂ + HR (fenêtre temporelle)
+- **Sortie** : Prédiction future (5-30 minutes)
+
+---
+
+## 10. LIVRABLES ATTENDUS
+
+- ✓ Documentation techniques (cahier des charges, architecture)
+- ✓ Code source complet (GitHub public)
+- ✓ Modèles IA entraînés (fichiers .pkl ou .h5)
+- ✓ Dataset de test et validation
+- ✓ Tableau de bord fonctionnel (déploiement local)
+- ✓ Rapports de performance et métriques
+- ✓ Article/rapport académique final
+- ✓ Vidéo de démonstration du système
+- ✓ Guide d'installation et d'utilisation
+
+---
+
+## 11. SCÉNARIOS D'UTILISATION
+
+### Scénario 1 : Monitoring ICU
+Un patient hospitalisé en unité de soins intensifs est connecté aux capteurs IoT. Le système enregistre en continu ECG, SpO₂, température. Les modèles IA détectent une anomalie (baisse SpO₂), déclenche une alerte. Le médecin intervient avant que la situation ne devienne critique.
+
+### Scénario 2 : Prédiction de risque
+Patient stable depuis 2 jours. Modèle LSTM prédit une détérioration respiratoire probable dans 45 minutes (75% confidence). Alerte préventive → Médecin prépare intervention → Crise évitée.
+
+### Scénario 3 : Monitoring à distance
+Médecin consultant peut accéder au système depuis un autre lieu. Tableau de bord mobile affiche l'état de ses patients. Reçoit notification en cas d'anomalie.
+
+### Scénario 4 : Analyse rétroactive
+Médecin examine l'historique d'un patient sur 7 jours. Graphiques montrent progression température, efficacité traitement, patterns d'anomalies.
+
+---
+
+## 12. CRITÈRES DE SUCCÈS
+
+- ✅ Système collecte et transmet les données sans erreur
+- ✅ Tableau de bord affiche données temps réel avec latence < 5 sec
+- ✅ Alertes déclenchées correctement pour seuils dépassés
+- ✅ Modèles IA : Accuracy > 85%, Precision > 80%, Recall > 75%
+- ✅ Aucune perte de données
+- ✅ Interface intuitive et utilisable par médecins sans formation technique
+- ✅ Prédictions IA pertinentes et explicables
+- ✅ Documentation complète et accessible
+
+---
+
+## 13. CONCLUSION
+
+Le projet "Smart Hospital" démontre comment les technologies IoT, IA et développement logiciel peuvent se combiner pour créer un système intelligent d'assistance médicale.
+
+Ce prototypage académique :
+- Améliore la sécurité et la réactivité médicale
+- Fournit un fondement solide pour la recherche future en e-santé
+- Offre une alternative abordable aux systèmes propriétaires coûteux
+- Combine innovation technologique et considérations éthiques médicales
+
+**La responsabilité finale de la décision clinique reste toujours au médecin. Le système IA est un OUTIL DE SUPPORT, pas un remplacement.**
+
+---
+
+**Document version** : 1.0  
+**Date** : Février 2026  
+**Status** : Cahier de charges académique

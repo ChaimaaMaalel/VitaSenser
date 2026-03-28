@@ -1,0 +1,395 @@
+import { Response } from 'express';
+import { AuthRequest } from '../middlewares/auth';
+import logger from '../utils/logger';
+import { Patient, PatientStatus } from '../models';
+
+// Get all patients
+export const getAllPatients = async (req: AuthRequest, res: Response) => {
+  try {
+    const { status, doctorId, page = 1, limit = 10 } = req.query;
+    
+    const where: any = {};
+    
+    if (status) where.status = status;
+    if (doctorId) where.assignedDoctorId = doctorId;
+    
+    const skip = (Number(page) - 1) * Number(limit);
+    
+    const [patients, total] = await Promise.all([
+      prisma.patient.findMany({
+        where,
+        skip,
+        take: Number(limit),
+        include: {
+          bed: {
+            include: {
+              room: {
+                include: { floor: true },
+              },
+            },
+          },
+          assignedDoctor: {
+            include: { user: true },
+          },
+          assignedNurses: {
+            include: { user: true },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.patient.count({ where }),
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        patients,
+        pagination: {
+          page: Number(page),
+          limit: Number(limit),
+          total,
+          pages: Math.ceil(total / Number(limit)),
+        },
+      },
+    });
+  } catch (error: any) {
+    logger.error('Get patients error:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to fetch patients', statusCode: 500 },
+    });
+  }
+};
+
+// Get patient by ID
+export const getPatientById = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const patient = await prisma.patient.findUnique({
+      where: { id },
+      include: {
+        bed: {
+          include: {
+            room: {
+              include: { floor: true },
+            },
+          },
+        },
+        assignedDoctor: {
+          include: { user: true },
+        },
+        assignedNurses: {
+          include: { user: true },
+        },
+        vitalSigns: {
+          take: 20,
+          orderBy: { timestamp: 'desc' },
+        },
+        alerts: {
+          where: { status: { in: ['ACTIVE', 'ACKNOWLEDGED'] } },
+          orderBy: { timestamp: 'desc' },
+        },
+        predictions: {
+          take: 10,
+          orderBy: { timestamp: 'desc' },
+        },
+      },
+    });
+
+    if (!patient) {
+      return res.status(404).json({
+        success: false,
+        error: { message: 'Patient not found', statusCode: 404 },
+      });
+    }
+
+    res.json({
+      success: true,
+      data: { patient },
+    });
+  } catch (error: any) {
+    logger.error('Get patient error:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to fetch patient', statusCode: 500 },
+    });
+  }
+};
+
+// Create patient
+export const createPatient = async (req: AuthRequest, res: Response) => {
+  try {
+    const {
+      firstName,
+      lastName,
+      dateOfBirth,
+      gender,
+      bloodType,
+      medicalHistory,
+      allergies,
+      assignedDoctorId,
+    } = req.body;
+
+    const patient = await prisma.patient.create({
+      data: {
+        firstName,
+        lastName,
+        dateOfBirth: new Date(dateOfBirth),
+        gender,
+        bloodType,
+        medicalHistory,
+        allergies: allergies || [],
+        assignedDoctorId,
+      },
+      include: {
+        assignedDoctor: {
+          include: { user: true },
+        },
+      },
+    });
+
+    logger.info(`Patient created: ${patient.firstName} ${patient.lastName} (ID: ${patient.id})`);
+
+    res.status(201).json({
+      success: true,
+      message: 'Patient created successfully',
+      data: { patient },
+    });
+  } catch (error: any) {
+    logger.error('Create patient error:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to create patient', statusCode: 500 },
+    });
+  }
+};
+
+// Update patient
+export const updatePatient = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const updateData = req.body;
+
+    const patient = await prisma.patient.update({
+      where: { id },
+      data: updateData,
+      include: {
+        bed: true,
+        assignedDoctor: {
+          include: { user: true },
+        },
+      },
+    });
+
+    logger.info(`Patient updated: ${patient.id}`);
+
+    res.json({
+      success: true,
+      message: 'Patient updated successfully',
+      data: { patient },
+    });
+  } catch (error: any) {
+    logger.error('Update patient error:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to update patient', statusCode: 500 },
+    });
+  }
+};
+
+// Admit patient
+export const admitPatient = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { bedId, assignedDoctorId } = req.body;
+
+    // Check if bed is available
+    const bed = await prisma.bed.findUnique({
+      where: { id: bedId },
+      include: { patient: true },
+    });
+
+    if (!bed || bed.status !== 'AVAILABLE') {
+      return res.status(400).json({
+        success: false,
+        error: { message: 'Bed is not available', statusCode: 400 },
+      });
+    }
+
+    // Update patient and bed
+    const [patient] = await Promise.all([
+      prisma.patient.update({
+        where: { id },
+        data: {
+          bedId,
+          assignedDoctorId,
+          status: 'IN_TREATMENT',
+          admissionDate: new Date(),
+        },
+        include: {
+          bed: {
+            include: { room: { include: { floor: true } } },
+          },
+          assignedDoctor: {
+            include: { user: true },
+          },
+        },
+      }),
+      prisma.bed.update({
+        where: { id: bedId },
+        data: { status: 'OCCUPIED' },
+      }),
+    ]);
+
+    logger.info(`Patient admitted: ${patient.id} to bed ${bedId}`);
+
+    res.json({
+      success: true,
+      message: 'Patient admitted successfully',
+      data: { patient },
+    });
+  } catch (error: any) {
+    logger.error('Admit patient error:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to admit patient', statusCode: 500 },
+    });
+  }
+};
+
+// Discharge patient
+export const dischargePatient = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const patientData = await prisma.patient.findUnique({
+      where: { id },
+      select: { bedId: true },
+    });
+
+    const [patient] = await Promise.all([
+      prisma.patient.update({
+        where: { id },
+        data: {
+          status: 'DISCHARGED',
+          dischargeDate: new Date(),
+          bedId: null,
+        },
+      }),
+      ...(patientData?.bedId
+        ? [
+            prisma.bed.update({
+              where: { id: patientData.bedId },
+              data: { status: 'AVAILABLE' },
+            }),
+          ]
+        : []),
+    ]);
+
+    logger.info(`Patient discharged: ${patient.id}`);
+
+    res.json({
+      success: true,
+      message: 'Patient discharged successfully',
+      data: { patient },
+    });
+  } catch (error: any) {
+    logger.error('Discharge patient error:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to discharge patient', statusCode: 500 },
+    });
+  }
+};
+
+// Get patient vitals
+export const getPatientVitals = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { limit = 50, timeRange } = req.query;
+
+    const where: any = { patientId: id };
+
+    if (timeRange) {
+      const hours = Number(timeRange);
+      where.timestamp = {
+        gte: new Date(Date.now() - hours * 60 * 60 * 1000),
+      };
+    }
+
+    const vitals = await prisma.vitalSigns.findMany({
+      where,
+      take: Number(limit),
+      orderBy: { timestamp: 'desc' },
+    });
+
+    res.json({
+      success: true,
+      data: { vitals },
+    });
+  } catch (error: any) {
+    logger.error('Get patient vitals error:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to fetch vitals', statusCode: 500 },
+    });
+  }
+};
+
+// Get patient alerts
+export const getPatientAlerts = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.query;
+
+    const where: any = { patientId: id };
+    if (status) where.status = status;
+
+    const alerts = await prisma.alert.findMany({
+      where,
+      include: {
+        vitalSigns: true,
+        acknowledgedBy: {
+          select: { id: true, firstName: true, lastName: true, role: true },
+        },
+      },
+      orderBy: { timestamp: 'desc' },
+    });
+
+    res.json({
+      success: true,
+      data: { alerts },
+    });
+  } catch (error: any) {
+    logger.error('Get patient alerts error:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to fetch alerts', statusCode: 500 },
+    });
+  }
+};
+
+// Delete patient
+export const deletePatient = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    await prisma.patient.delete({
+      where: { id },
+    });
+
+    logger.info(`Patient deleted: ${id}`);
+
+    res.json({
+      success: true,
+      message: 'Patient deleted successfully',
+    });
+  } catch (error: any) {
+    logger.error('Delete patient error:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to delete patient', statusCode: 500 },
+    });
+  }
+};

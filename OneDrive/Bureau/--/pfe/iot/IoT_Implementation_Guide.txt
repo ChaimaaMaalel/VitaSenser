@@ -1,0 +1,1825 @@
+================================================================================
+                         IOT - PARTIE CAPTEURS
+             Système de Surveillance Intelligente des Patients
+================================================================================
+
+TABLE DES MATIÈRES
+================================================================================
+1. Vue d'ensemble de l'architecture IoT
+2. Sélection des capteurs
+3. Matériel requis (Hardware)
+4. Installation et configuration des capteurs
+5. Protocols de communication
+6. Passerelle IoT (Gateway)
+7. Traitement et transmission des données
+8. Intégration avec le backend
+9. Tests et validation
+10. Implémentation étape par étape
+11. Code exemple pour chaque composant
+
+
+================================================================================
+1. VUE D'ENSEMBLE DE L'ARCHITECTURE IOT
+================================================================================
+
+FLUX DE DONNÉES COMPLET:
+
+┌─────────────┐
+│   PATIENT   │
+└──────┬──────┘
+       │ Porte les capteurs
+       ↓
+┌──────────────────────────────────────┐
+│     CAPTEURS IoT (sur patient)       │
+├──────────────────────────────────────┤
+│ • Heart Rate (HR) Sensor             │ → Bluetooth/WiFi
+│ • ECG Sensor                         │
+│ • SpO₂ Sensor (Pulse Oximeter)       │
+│ • Temperature Sensor                 │
+└──────────────────────────────────────┘
+       │ Wireless transmission
+       ↓
+┌──────────────────────────────────────┐
+│    IOT GATEWAY / HUB                 │
+├──────────────────────────────────────┤
+│ • Receives signals from sensors      │
+│ • Local processing                   │
+│ • Timestamp synchronization          │
+│ • Data buffering                     │
+│ • WiFi/4G connectivity               │
+└──────────────────────────────────────┘
+       │ HTTP/MQTT
+       ↓
+┌──────────────────────────────────────┐
+│    BACKEND SERVER (Flask/FastAPI)    │
+├──────────────────────────────────────┤
+│ • API endpoints                      │
+│ • Data validation                    │
+│ • Database storage (PostgreSQL)      │
+│ • ML model inference                 │
+└──────────────────────────────────────┘
+       │
+       ↓
+┌──────────────────────────────────────┐
+│     AI ENGINE & PROCESSING           │
+├──────────────────────────────────────┤
+│ • Feature extraction                 │
+│ • Model predictions                  │
+│ • Alert generation                   │
+└──────────────────────────────────────┘
+       │
+       ↓
+┌──────────────────────────────────────┐
+│   DASHBOARD (Web/Mobile)             │
+├──────────────────────────────────────┤
+│ • Real-time monitoring               │
+│ • Doctor interface                   │
+│ • Alerts display                     │
+│ • Historical data view               │
+└──────────────────────────────────────┘
+
+
+================================================================================
+2. SÉLECTION DES CAPTEURS
+================================================================================
+
+2.1 CAPTEUR DE FRÉQUENCE CARDIAQUE (Heart Rate)
+
+OPTIONS COMMERCIALES:
+
+┌─────────────────────────────────────────────────┐
+│ 1. MAX30102 (Pulsoximeter + HR IC)              │
+├─────────────────────────────────────────────────┤
+│ Prix: $2-5 USD                                  │
+│ Interfaceface: I2C                              │
+│ Voltage: 1.8-3.3V                              │
+│ Fréquence Sampling: jusqu'à 10 kHz              │
+│ Avantages:                                      │
+│   ✓ Abordable                                   │
+│   ✓ Compact                                     │
+│   ✓ Dual HR + SpO₂                              │
+│   ✓ Low power (~2mA)                            │
+│ Inconvénients:                                  │
+│   ✗ Calibration nécessaire                      │
+│   ✗ Sensible au mouvement                       │
+│ Librairies: pulsioximetry libraries existing    │
+└─────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────┐
+│ 2. ADXL345 (Accéléromètre pour détection HR)   │
+├─────────────────────────────────────────────────┤
+│ Prix: $5-8 USD                                  │
+│ Non idéal pour HR direct (détection indirecte) │
+└─────────────────────────────────────────────────┘
+
+SÉLECTION RECOMMANDÉE: MAX30102
+
+
+2.2 CAPTEUR ECG (Électrocardiogramme)
+
+┌─────────────────────────────────────────────────┐
+│ 1. AD8232 (Single Lead ECG IC)                  │
+├─────────────────────────────────────────────────┤
+│ Prix: $10-20 USD                                │
+│ Interfaceface: Analogique (3 broches)           │
+│ Sampling Rate: 250 Hz (standard pour ECG)       │
+│ Output: 0-3.3V (ADC compatible)                 │
+│ Avantages:                                      │
+│   ✓ Léger (un seul lead)                        │
+│   ✓ Fréquence adéquate (250 Hz)                │
+│   ✓ Agréable pour portable                      │
+│   ✓ Peu d'interférence électromagnétique        │
+│ Inconvénients:                                  │
+│   ✗ Un seul lead (pas diagnostic complet)       │
+│   ✗ Nécessite électrodes adhésives              │
+│ Notes: Bon pour monitoring, pas certification  │
+│        médicale complète                        │
+└─────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────┐
+│ 2. ADS1292R (Multi-lead ECG IC)                 │
+├─────────────────────────────────────────────────┤
+│ Prix: $50-100 USD                               │
+│ Channels: 2 (2-lead ECG)                        │
+│ Sampling: 125-500 Hz configurable              │
+│ Plus complet mais plus cher                     │
+└─────────────────────────────────────────────────┘
+
+SÉLECTION RECOMMANDÉE: AD8232 (pour prototype académique)
+
+
+2.3 CAPTEUR SpO₂ (Saturation Oxygène)
+
+INTÉGRÉ DANS: MAX30102
+- Utilise LED rouge + IR pour saturation oxygène
+- Non nécessaire capteur séparé
+- Fréquence: mesure toutes les secondes
+
+
+2.4 CAPTEUR TEMPÉRATURE
+
+┌─────────────────────────────────────────────────┐
+│ 1. DHT22 (Digital Humidity & Temperature)       │
+├─────────────────────────────────────────────────┤
+│ Prix: $5-10 USD                                 │
+│ Interface: 1-Wire (digital)                     │
+│ Accuracy: ±0.5°C                                │
+│ Range: -40 to +80°C                             │
+│ Sampling: 1-2 Hz (0.5-1 sec)                    │
+│ Avantages:                                      │
+│   ✓ Numérique (pas de calibration ADC)          │
+│   ✓ Presicion adéquate                          │
+│   ✓ Abordable                                   │
+│   ✓ Facile à interfacer                         │
+│ Inconvénients:                                  │
+│   ✗ Lent (1 mesure/sec)                         │
+│   ✗ Pas de santé médicale                       │
+└─────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────┐
+│ 2. DS18B20 (Temperature only)                   │
+├─────────────────────────────────────────────────┤
+│ Prix: $1-2 USD                                  │
+│ Interface: 1-Wire                               │
+│ Accuracy: ±0.5°C                                │
+│ Idéal pour température uniquement               │
+└─────────────────────────────────────────────────┘
+
+SÉLECTION RECOMMANDÉE: DS18B20 (température) ou DHT22 (temp + humidité)
+
+
+2.5 RÉSUMÉ DES CAPTEURS SÉLECTIONNÉS
+
+┌────────────────────────────────────────────────────────┐
+│ CAPTEURS RECOMMANDÉS POUR PROTOTYPE                    │
+├────────────────────────────────────────────────────────┤
+│ 1. MAX30102 (HR + SpO₂)              ~ $3 USD         │
+│ 2. AD8232 (ECG single-lead)          ~ $15 USD        │
+│ 3. DS18B20 (Temperature)             ~ $2 USD         │
+│ 4. Arduino/ESP32 (Microcontroller)   ~ $20-40 USD     │
+│ 5. WiFi/Bluetooth Module (si nécessaire) ~ $5 USD     │
+├────────────────────────────────────────────────────────┤
+│ COÛT TOTAL ESTIMÉ PAR PATIENT:      ~ $50 USD        │
+│ (Pour 10 patients: ~$500)                            │
+└────────────────────────────────────────────────────────┘
+
+
+================================================================================
+3. MATÉRIEL REQUIS (HARDWARE)
+================================================================================
+
+3.1 MICROCONTROLLER (Cerveau du système)
+
+OPTION 1: Arduino (Recommandé pour apprentissage)
+┌─────────────────────────────────────────────────┐
+│ Arduino Uno / Arduino MKR1000                   │
+├─────────────────────────────────────────────────┤
+│ Prix: $20-40 USD                                │
+│ Processeur: ATmega328P (8 MHz) ou WiFi capable  │
+│ RAM: 2 KB (Uno) ou plus (MKR)                   │
+│ Avantages:                                      │
+│   ✓ Facile à programmer                         │
+│   ✓ Nombreuses librairies                       │
+│   ✓ Communauté large                            │
+│   ✓ Prototypage rapide                          │
+│ Inconvénients:                                  │
+│   ✗ Puissance limitée                           │
+│   ✗ Nécessite module WiFi séparé                │
+└─────────────────────────────────────────────────┘
+
+OPTION 2: ESP32 (Recommandé pour production)
+┌─────────────────────────────────────────────────┐
+│ ESP32 DevKit                                    │
+├─────────────────────────────────────────────────┤
+│ Prix: $8-15 USD                                 │
+│ Processeur: Dual-core 240 MHz                   │
+│ RAM: 520 KB                                     │
+│ WiFi/Bluetooth: Intégré ✓                       │
+│ IDE: Arduino IDE compatible                     │
+│ Avantages:                                      │
+│   ✓ WiFi + Bluetooth built-in                   │
+│   ✓ Plus puissant                               │
+│   ✓ Moins cher                                  │
+│   ✓ Nombreux GPIO                               │
+│   ✓ Deep sleep (economie énergie)               │
+│ Inconvénients:                                  │
+│   ✗ Consommation plus élevée                    │
+│   ✗ Plus complexe                               │
+└─────────────────────────────────────────────────┘
+
+SÉLECTION RECOMMANDÉE: ESP32 (meilleur rapport qualité/prix)
+
+
+3.2 BATTERIE ET ALIMENTATION
+
+Pour capteurs portables (wearables):
+├─ Batterie Lithium-ion 3.7V (ex: 18650)
+├─ Capacity: 2000-3000 mAh
+├─ Autonomie: 8-24 heures (selon consommation)
+├─ Circuit de recharge: TP4056 ($1 USD)
+└─ Voltage regulator: AMS1117-3.3V ($0.5 USD)
+
+Pour gateway (stationnaire):
+├─ Alimentation 5V USB (standard)
+├─ ou batterie 9V rechargeable
+├─ Batterie backup (UPS optionnel)
+└─ Autonomie: non-critique
+
+
+3.3 CÂBLES ET CONNECTEURS
+
+├─ Micro-USB (pour programmation)
+├─ Câbles dupont (20-30 pcs)
+├─ Connecteurs JST (pour batterie)
+├─ Électrodes adhésives (pour ECG)
+│  ├─ Cardiaque standard 3M
+│  ├─ Quantity: ~100 pcs
+│  └─ Prix: ~$0.5 chacun
+└─ Boîtier 3D-imprimé (optionnel)
+
+
+3.4 OUTILS DE DÉVELOPPEMENT
+
+Matériel:
+├─ Multimètre digital ($5-20)
+├─ Breadboard (sans soudure)
+├─ USB-to-Serial adapter (optionnel)
+└─ Ordinateur pour développement (Python, Arduino IDE)
+
+Logiciel:
+├─ Arduino IDE (gratuit)
+├─ Visual Studio Code (gratuit)
+├─ Python 3.8+ (gratuit)
+├─ Serial Monitor / Putty (gratuit)
+└─ MicroPython (via Thonny)
+
+
+================================================================================
+4. INSTALLATION ET CONFIGURATION DES CAPTEURS
+================================================================================
+
+4.1 INSTALLATION PHYSIQUE DES CAPTEURS
+
+CAPTEUR MAX30102 (HR + SpO₂)
+
+Localisation: Doigt du patient (l'index ou majeur)
+
+Schéma de connexion (Pinout):
+```
+MAX30102 Pin    ESP32 Pin    Description
+─────────────────────────────────────────
+VCC (3.3V)  →   3.3V         Alimentation
+GND         →   GND          Masse
+SDA (I2C)   →   GPIO 21      Data (I2C)
+SCL (I2C)   →   GPIO 22      Clock (I2C)
+INT         →   GPIO 35      Interruption (optionnel)
+```
+
+Capteur optique:
+├─ Émetteur LED (rouge + IR)
+├─ Récepteur photodiode
+├─ Distance: 1-5 mm du doigt
+├─ Pression: légère (pas serrer)
+└─ Contact: peau directe (pas de vernis)
+
+Note: MAX30102 possède module 8-mm × 8-mm
+
+
+CAPTEUR AD8232 (ECG)
+
+Localisation: 3 électrodes sur la poitrine
+
+Positions électrodes (standard ECG):
+```
+┌─────────────────────────────┐
+│   Poitrine du patient       │
+│                             │
+│  RA • (bras droit)          │
+│      ╲                      │
+│       │ Électrode féminin   │
+│   LA • (poitrine gauche)    │
+│                             │
+│   RL • (jambe droit) - ref  │
+│                             │
+└─────────────────────────────┘
+
+RA = Right Arm (rouge)
+LA = Left Arm (jaune)
+RL = Right Leg (noir) - référence/masse
+```
+
+Schéma connexion AD8232:
+```
+AD8232 Pin      ESP32 Pin      Description
+─────────────────────────────────────────
+GND         →   GND            Masse
+3.3V        →   3.3V           Alimentation
+OUTPUT      →   GPIO 34        Signal analogique
+LO+         →   GPIO 35        Détection électrode
+LO-         →   GND            Détection électrode (masse)
+```
+
+Installation électrodes:
+├─ Préparer peau (essuyer, nettoyer)
+├─ Appliquer électrodes adhésives
+├─ Placer en triangle (voir positions)
+├─ Durée: 24-48 heures (puis changer)
+├─ Attacher cables sans tension
+└─ Éviter mouvements excessifs
+
+
+CAPTEUR DS18B20 (Température)
+
+Localisation: Aisselle, bouche ou rectum (protocole médical)
+Pour prototype: bouche du patient
+
+Schéma connexion:
+```
+DS18B20 Pin     ESP32 Pin      Description
+──────────────────────────────────────
+GND (pin 1) →   GND            Masse
+DQ (pin 2)  →   GPIO 4         Data (1-Wire)
+VCC (pin 3) →   3.3V           Alimentation
+
+Note: Ajouter résistance pull-up 4.7kΩ entre DQ et 3.3V
+```
+
+
+4.2 BRANCHEMENT COMPLET - SCHÉMA ÉLECTRIQUE
+
+```
+┌─────────────────────────────────────────────────────┐
+│                    ESP32 Board                      │
+│                                                     │
+│  3.3V ──┬──────────-> MAX30102 VCC                 │
+│         ├──────────-> DS18B20 VCC                  │
+│         └──────────-> AD8232 3.3V                  │
+│                                                     │
+│  GND  ──┬──────────-> MAX30102 GND                 │
+│         ├──────────-> DS18B20 GND                  │
+│         ├──────────-> AD8232 GND                   │
+│         └──────────-> Pull-down ALL                │
+│                                                     │
+│  GPIO 21 (SDA) ───> MAX30102 SDA (I2C)            │
+│  GPIO 22 (SCL) ───> MAX30102 SCL (I2C)            │
+│                                                     │
+│  GPIO 4 ──────────> DS18B20 DQ (1-Wire)           │
+│  (+ résistance pull-up 4.7kΩ à 3.3V)              │
+│                                                     │
+│  GPIO 34 ─────────> AD8232 OUTPUT (ADC)           │
+│  GPIO 35 ─────────> AD8232 LO+ (détection)        │
+│                                                     │
+│  Micro-USB ───────> Alimentation + Programmation  │
+│                                                     │
+└─────────────────────────────────────────────────────┘
+```
+
+
+================================================================================
+5. PROTOCOLS DE COMMUNICATION
+================================================================================
+
+5.1 COMMUNICATION CAPTEUR ↔ MICROCONTROLLER
+
+OPTION 1: I2C (Inter-Integrated Circuit)
+┌──────────────────────────────────────┐
+│ Utilisation: MAX30102                │
+├──────────────────────────────────────┤
+│ Caractéristiques:                    │
+│ • 2 fils (SDA + SCL)                 │
+│ • Vitesse: 100-400 kHz               │
+│ • Adresse: 0x57 (MAX30102)          │
+│ • Pull-ups résistances: 4.7kΩ        │
+│                                      │
+│ Avantages:                           │
+│ ✓ Multi-device (jusqu'à 127)         │
+│ ✓ Simple, 2 fils                     │
+│ ✓ Synchronized                       │
+│                                      │
+│ Inconvénients:                       │
+│ ✗ Distance limitée (~30 cm)          │
+│ ✗ Plus lent qu'autres                │
+└──────────────────────────────────────┘
+
+Code I2C (Arduino):
+```cpp
+#include <Wire.h>
+
+#define I2C_FREQUENCY 400000  // 400 kHz
+
+void setup() {
+    Wire.begin();
+    Wire.setClock(I2C_FREQUENCY);
+}
+
+void readMaxSensor() {
+    Wire.beginTransmission(0x57);  // MAX30102 address
+    Wire.write(0x07);              // FIFO_DATA register
+    Wire.endTransmission();
+    
+    Wire.requestFrom(0x57, 6);     // Read 6 bytes
+    while (Wire.available()) {
+        uint8_t data = Wire.read();
+        // Process data
+    }
+}
+```
+
+
+OPTION 2: 1-Wire (Dallas/Maxim)
+┌──────────────────────────────────────┐
+│ Utilisation: DS18B20                 │
+├──────────────────────────────────────┤
+│ Caractéristiques:                    │
+│ • 1 fil + masse                      │
+│ • Vitesse: 9600 bit/s ou 115200      │
+│ • Adresse unique 64-bit               │
+│ • Pull-up résistance: 4.7kΩ           │
+│                                      │
+│ Avantages:                           │
+│ ✓ Un seul fil (économe)              │
+│ ✓ Adressage unique automatique        │
+│ ✓ Distance: jusqu'à 100 m             │
+│                                      │
+│ Inconvénients:                       │
+│ ✗ Plus lent                          │
+│ ✗ Complexe à implémenter             │
+└──────────────────────────────────────┘
+
+Code 1-Wire (Arduino):
+```cpp
+#include <OneWire.h>
+#include <DallasTemperature.h>
+
+#define ONE_WIRE_BUS 4  // GPIO 4
+
+OneWire oneWire(ONE_WIRE_BUS);
+DallasTemperature sensors(&oneWire);
+
+void setup() {
+    sensors.begin();
+}
+
+void readTemperature() {
+    sensors.requestTemperatures();
+    float tempC = sensors.getTempCByIndex(0);
+    Serial.println(tempC);
+}
+```
+
+
+OPTION 3: Analogique (ADC)
+┌──────────────────────────────────────┐
+│ Utilisation: AD8232 (ECG)            │
+├──────────────────────────────────────┤
+│ Caractéristiques:                    │
+│ • 0-3.3V → 0-4095 ADC                │
+│ • Résolution: 12-bit                 │
+│ • Vitesse: ~1000 Hz (1 ms/sample)    │
+│                                      │
+│ Avantages:                           │
+│ ✓ Simple, direct                     │
+│ ✓ Rapide                             │
+│ ✓ Pas de librairie spéciale          │
+│                                      │
+│ Inconvénients:                       │
+│ ✗ Nécessite calibration              │
+│ ✗ Bruit électrique possible          │
+│ ✗ Résolution limitée                 │
+└──────────────────────────────────────┘
+
+Code Analogique (Arduino):
+```cpp
+#define ECG_PIN 34  // Analogique input
+
+void setup() {
+    analogSetResolution(12);  // 12-bit
+    analogSetAttenuation(ADC_11db);
+    Serial.begin(115200);
+}
+
+void readECG() {
+    int rawValue = analogRead(ECG_PIN);
+    float voltage = rawValue * (3.3 / 4095.0);
+    Serial.println(voltage);
+}
+```
+
+
+5.2 COMMUNICATION MICROCONTROLLER ↔ GATEWAY
+
+OPTION 1: WiFi (HTTP/MQTT)
+┌──────────────────────────────────────┐
+│ Protocole: HTTP POST ou MQTT        │
+│ Fréquence: 2.4 GHz (standard)        │
+├──────────────────────────────────────┤
+│ HTTP POST (Simple):                  │
+│ • Endpoint: http://gateway:5000/data │
+│ • Port: 5000 (Flask)                 │
+│ • Payload: JSON                      │
+│ • Interval: chaque 5-10 secondes      │
+│                                      │
+│ Avantages:                           │
+│ ✓ Simple à mettre en place           │
+│ ✓ Browser compatible                 │
+│ ✓ Pas de middleman nécessaire        │
+│                                      │
+│ Inconvénients:                       │
+│ ✗ Plus de bande passante             │
+│ ✗ Latence plus élevée                │
+└──────────────────────────────────────┘
+
+Code WiFi HTTP (Arduino/ESP32):
+```cpp
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include <ArduinoJson.h>
+
+const char* ssid = "Hospital_WiFi";
+const char* password = "password123";
+const char* serverName = "http://192.168.1.100:5000/api/data";
+
+void setup() {
+    Serial.begin(115200);
+    WiFi.begin(ssid, password);
+    
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(500);
+        Serial.print(".");
+    }
+    Serial.println("\nConnected!");
+}
+
+void sendData(float hr, float spo2, float temp, int ecg) {
+    if (WiFi.status() == WL_CONNECTED) {
+        HTTPClient http;
+        http.begin(serverName);
+        http.addHeader("Content-Type", "application/json");
+        
+        // Create JSON payload
+        StaticJsonDocument<200> doc;
+        doc["patient_id"] = "P001";
+        doc["hr"] = hr;
+        doc["spo2"] = spo2;
+        doc["temperature"] = temp;
+        doc["ecg_raw"] = ecg;
+        doc["timestamp"] = millis();
+        
+        String json;
+        serializeJson(doc, json);
+        
+        int httpCode = http.POST(json);
+        
+        if (httpCode > 0) {
+            String response = http.getString();
+            Serial.println(response);
+        }
+        http.end();
+    }
+}
+
+void loop() {
+    // Read sensors
+    float hr = readHeartRate();
+    float spo2 = readSpO2();
+    float temp = readTemperature();
+    int ecg = readECG();
+    
+    // Send data every 5 seconds
+    sendData(hr, spo2, temp, ecg);
+    delay(5000);
+}
+```
+
+
+OPTION 2: Bluetooth (BLE)
+┌──────────────────────────────────────┐
+│ Protocole: BLE (Bluetooth Low Energy)│
+│ Fréquence: 2.4 GHz (WiFi compatible) │
+├──────────────────────────────────────┤
+│ Avantages:                           │
+│ ✓ Très faible consommation           │
+│ ✓ Direct à smartphone                │
+│ ✓ Portable (wearable friendly)       │
+│                                      │
+│ Inconvénients:                       │
+│ ✗ Nécessite gateway BLE              │
+│ ✗ Plus complexe                      │
+│ ✗ Portée: ~10-50 m                   │
+└──────────────────────────────────────┘
+
+Implémentation:
+├─ ESP32 BLE Service
+├─ Characteristic: HR, SpO2, Temp, ECG
+├─ Gateway BLE → WiFi bridge
+└─ (Code avancé, voir section 11)
+
+
+OPTION 3: LoRaWAN (pour distance)
+┌──────────────────────────────────────┐
+│ Protocole: LoRaWAN                   │
+│ Distance: jusqu'à 10 km               │
+│ Bande passante: très réduite          │
+├──────────────────────────────────────┤
+│ Adapté à: rural, hôpitaux dispersés  │
+│ Non recommandé: données temps réel   │
+│ haute fréquence                      │
+└──────────────────────────────────────┘
+
+SÉLECTION POUR PROTOTYPE: HTTP via WiFi
+
+
+================================================================================
+6. PASSERELLE IoT (GATEWAY)
+================================================================================
+
+6.1 RÔLE DE LA GATEWAY
+
+La gateway sert de point de concentration et de traitement intermédiaire.
+
+FONCTIONS:
+```
+┌─────────────────────────────────────┐
+│   GATEWAY IoT                       │
+├─────────────────────────────────────┤
+│ 1. Receive data from sensors        │
+│    ├─ WiFi endpoint sur port 5000   │
+│    ├─ Bluetooth listening (optionnel)
+│    └─ Serial (pour tests)           │
+│                                     │
+│ 2. Data validation & filtering      │
+│    ├─ Check ranges (HR 40-200)      │
+│    ├─ Remove duplicates             │
+│    ├─ Timestamp correction          │
+│    └─ Outlier detection             │
+│                                     │
+│ 3. Local processing                 │
+│    ├─ Rate limiting                 │
+│    ├─ Data aggregation (5-10 sec)   │
+│    ├─ Local alerts (critique)       │
+│    └─ Buffering                     │
+│                                     │
+│ 4. Transmission to Backend          │
+│    ├─ Batch upload (every 10 sec)   │
+│    ├─ Queue management              │
+│    ├─ Retry on failure              │
+│    └─ Log data locally              │
+│                                     │
+│ 5. User interface (optionnel)       │
+│    ├─ Local web dashboard           │
+│    ├─ Status lights (LED)           │
+│    └─ Emergency stop button         │
+└─────────────────────────────────────┘
+```
+
+6.2 IMPLÉMENTATION DE LA GATEWAY
+
+TYPE 1: Raspberry Pi (Recommandé)
+┌──────────────────────────────────────┐
+│ Hardware:                            │
+│ • Raspberry Pi 4 (4GB RAM)           │
+│ • SD Card 64GB                       │
+│ • Alimentation 5V/3A                 │
+│ • WiFi built-in                      │
+│                                      │
+│ OS: Raspberry Pi OS (Linux)          │
+│ Language: Python 3.8+                │
+│ Framework: Flask/FastAPI             │
+│                                      │
+│ Avantages:                           │
+│ ✓ Puissant (Quad-core)              │
+│ ✓ WiFi intégré                      │
+│ ✓ Easy to program (Python)          │
+│ ✓ Abordable (~$50)                  │
+│                                      │
+│ Inconvénients:                       │
+│ ✗ Consommation électrique            │
+│ ✗ Nécessite refroidissement          │
+│ ✗ Non portable                       │
+└──────────────────────────────────────┘
+
+TYPE 2: ESP32 (Alternatif simple)
+┌──────────────────────────────────────┐
+│ Utiliser ESP32 directement comme     │
+│ gateway si pas de traitement lourd   │
+│                                      │
+│ Avantages:                           │
+│ ✓ Low power, portable                │
+│ ✓ Moins cher                         │
+│                                      │
+│ Inconvénients:                       │
+│ ✗ Puissance limitée                  │
+│ ✗ Très limité pour ML                │
+│ ✗ Pas multitasking complexe          │
+└──────────────────────────────────────┘
+
+SÉLECTION RECOMMANDÉE: Raspberry Pi 4
+
+
+6.3 CODE GATEWAY (Python Flask)
+
+```python
+from flask import Flask, request, jsonify
+from datetime import datetime
+import json
+import threading
+import requests
+from collections import deque
+
+app = Flask(__name__)
+
+# Configuration
+BACKEND_URL = "http://backend-server:5000/api/patients/data"
+MAX_BUFFER_SIZE = 1000
+BATCH_UPLOAD_INTERVAL = 10  # secondes
+
+# Data buffer
+patient_buffers = {}  # {patient_id: deque([...data...])}
+last_upload = {}
+
+# Validation ranges
+VALID_RANGES = {
+    'hr': (40, 200),
+    'spo2': (80, 100),
+    'temperature': (35, 42),
+}
+
+
+def validate_data(data):
+    """Validate incoming sensor data"""
+    errors = []
+    
+    # Check required fields
+    required = ['patient_id', 'hr', 'spo2', 'temperature']
+    for field in required:
+        if field not in data:
+            errors.append(f"Missing field: {field}")
+    
+    # Check ranges
+    if 'hr' in data:
+        hr_min, hr_max = VALID_RANGES['hr']
+        if not (hr_min <= data['hr'] <= hr_max):
+            errors.append(f"HR out of range: {data['hr']}")
+    
+    if 'spo2' in data:
+        spo2_min, spo2_max = VALID_RANGES['spo2']
+        if not (spo2_min <= data['spo2'] <= spo2_max):
+            errors.append(f"SpO2 out of range: {data['spo2']}")
+    
+    if 'temperature' in data:
+        temp_min, temp_max = VALID_RANGES['temperature']
+        if not (temp_min <= data['temperature'] <= temp_max):
+            errors.append(f"Temperature out of range: {data['temperature']}")
+    
+    return len(errors) == 0, errors
+
+
+@app.route('/api/data', methods=['POST'])
+def receive_data():
+    """Endpoint for sensor data"""
+    try:
+        data = request.get_json()
+        
+        # Validate
+        valid, errors = validate_data(data)
+        if not valid:
+            return jsonify({'error': errors}), 400
+        
+        # Add timestamp if missing
+        if 'timestamp' not in data:
+            data['timestamp'] = datetime.now().isoformat()
+        
+        patient_id = data['patient_id']
+        
+        # Initialize buffer if needed
+        if patient_id not in patient_buffers:
+            patient_buffers[patient_id] = deque(maxlen=MAX_BUFFER_SIZE)
+            last_upload[patient_id] = datetime.now()
+        
+        # Add to buffer
+        patient_buffers[patient_id].append(data)
+        
+        # Check if should upload
+        time_since_upload = (datetime.now() - last_upload[patient_id]).total_seconds()
+        if time_since_upload >= BATCH_UPLOAD_INTERVAL:
+            upload_data(patient_id)
+        
+        return jsonify({'status': 'received'}), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+
+def upload_data(patient_id):
+    """Upload buffered data to backend"""
+    if patient_id not in patient_buffers or len(patient_buffers[patient_id]) == 0:
+        return
+    
+    try:
+        # Get all buffered data
+        batch = list(patient_buffers[patient_id])
+        
+        # Send to backend
+        response = requests.post(
+            BACKEND_URL,
+            json={'data': batch},
+            timeout=10
+        )
+        
+        if response.status_code == 200:
+            # Clear buffer on success
+            patient_buffers[patient_id].clear()
+            last_upload[patient_id] = datetime.now()
+            print(f"✓ Uploaded {len(batch)} records for {patient_id}")
+        else:
+            print(f"✗ Upload failed: {response.status_code}")
+    
+    except Exception as e:
+        print(f"✗ Upload error: {e}")
+        # Don't clear buffer - retry next time
+
+
+@app.route('/health', methods=['GET'])
+def health_check():
+    """Health check endpoint"""
+    return jsonify({
+        'status': 'healthy',
+        'timestamp': datetime.now().isoformat(),
+        'buffers': {pid: len(buf) for pid, buf in patient_buffers.items()}
+    }), 200
+
+
+# Background thread for periodic uploads
+def periodic_upload():
+    """Upload data periodically"""
+    while True:
+        import time
+        time.sleep(10)  # Every 10 seconds
+        for patient_id in list(patient_buffers.keys()):
+            upload_data(patient_id)
+
+
+if __name__ == '__main__':
+    # Start background uploader
+    upload_thread = threading.Thread(target=periodic_upload, daemon=True)
+    upload_thread.start()
+    
+    # Start Flask
+    app.run(host='0.0.0.0', port=5000, debug=False)
+```
+
+
+================================================================================
+7. TRAITEMENT ET TRANSMISSION DES DONNÉES
+================================================================================
+
+7.1 PIPELINE DONNÉES COMPLET
+
+```
+ÉTAPE 1: Acquisition
+├─ Sensors lisent vitals
+├─ Fréquence: 1 Hz (1 mesure/sec)
+└─ Format: valeurs brutes
+
+ÉTAPE 2: Buffering local
+├─ ESP32 buffer: 60 lectures (1 min)
+├─ Format: JSON local
+└─ Prêt transmission toutes les 5 sec
+
+ÉTAPE 3: Transmission à Gateway
+├─ HTTP POST
+├─ Payload: {patient_id, hr, spo2, temp, ecg, timestamp}
+├─ Interval: 5-10 sec
+└─ Retry: 3x si failure
+
+ÉTAPE 4: Gateway traitement
+├─ Validation données
+├─ Filtrage outliers
+├─ Buffering (agrégation)
+├─ Logs locaux (.csv)
+└─ Notification alerts (si critique)
+
+ÉTAPE 5: Batch upload à Backend
+├─ Intervalle: 10 sec
+├─ Taille batch: jusqu'à 1000 records
+├─ Compression: optionnel
+└─ Timeout: 10 sec
+
+ÉTAPE 6: Backend processing
+├─ Validation répétée
+├─ Storage en DB
+├─ Feature extraction (prépro)
+├─ Model inference (ML)
+└─ Alert generation
+
+ÉTAPE 7: Dashboard update (WebSocket)
+└─ Real-time display
+```
+
+7.2 FORMAT JSON DES DONNÉES
+
+EXEMPLE 1: Données brutes (du capteur)
+```json
+{
+    "patient_id": "P001",
+    "sensor_type": "MAX30102",
+    "hr": 95,
+    "spo2": 96.5,
+    "ecg_raw": 2048,
+    "timestamp": "2026-02-16T14:30:45.123Z"
+}
+```
+
+EXEMPLE 2: Données agrégées (de la gateway)
+```json
+{
+    "patient_id": "P001",
+    "data": [
+        {
+            "hr": 94,
+            "spo2": 96.2,
+            "temperature": 37.1,
+            "ecg_raw": 2045,
+            "timestamp": "2026-02-16T14:30:40Z"
+        },
+        {
+            "hr": 95,
+            "spo2": 96.7,
+            "temperature": 37.2,
+            "ecg_raw": 2050,
+            "timestamp": "2026-02-16T14:30:45Z"
+        }
+        // ... plus d'enregistrements
+    ]
+}
+```
+
+EXEMPLE 3: Avec indices calculés (avantagé)
+```json
+{
+    "patient_id": "P001",
+    "reading_id": 1234,
+    "timestamp": "2026-02-16T14:30:45Z",
+    "vitals": {
+        "heart_rate": 95,
+        "spo2_percentage": 96.5,
+        "temperature_celsius": 37.2,
+        "ecg_signal": [2045, 2048, 2050, ...]
+    },
+    "indices": {
+        "hr_mean_1min": 93.5,
+        "hr_std_1min": 2.1,
+        "spo2_trend": -0.1
+    },
+    "metadata": {
+        "gateway_id": "GW001",
+        "signal_quality": 95,
+        "battery_level": 85
+    }
+}
+```
+
+
+7.3 PROTOCOLE DE COMMUNICATION
+
+TIMEOUTS ET RETRIES:
+
+```
+Tentative 1: POST /api/data
+  ↓
+  Timeout? (10 sec) → Tentative 2 (après 2 sec)
+  Non reçu? → Tentative 3 (après 5 sec)
+  
+Succes → Clear buffer
+Failure 3x → Local log, alert admin
+```
+
+GESTION DE CONNEXION:
+
+```python
+def send_with_retry(data, max_retries=3):
+    for attempt in range(max_retries):
+        try:
+            response = requests.post(
+                BACKEND_URL,
+                json=data,
+                timeout=10
+            )
+            if response.status_code == 200:
+                return True
+        except requests.Timeout:
+            print(f"Attempt {attempt+1}: Timeout")
+        except requests.ConnectionError:
+            print(f"Attempt {attempt+1}: Connection error")
+        
+        if attempt < max_retries - 1:
+            import time
+            time.sleep(2 ** attempt)  # Exponential backoff
+    
+    return False
+```
+
+
+================================================================================
+8. INTÉGRATION AVEC LE BACKEND
+================================================================================
+
+8.1 BACKEND API ENDPOINTS
+
+Endpoint 1: Recevoir les données
+```
+POST /api/patients/data
+Content-Type: application/json
+
+Body:
+{
+    "data": [
+        {
+            "patient_id": "P001",
+            "hr": 95,
+            "spo2": 96.5,
+            "temperature": 37.2,
+            "timestamp": "2026-02-16T14:30:45Z"
+        },
+        ...
+    ]
+}
+
+Response:
+{
+    "status": "success",
+    "records_processed": 120,
+    "alerts": [
+        {
+            "patient_id": "P001",
+            "type": "HIGH_HEART_RATE",
+            "severity": "MEDIUM"
+        }
+    ]
+}
+```
+
+Endpoint 2: Récupérer l'historique
+```
+GET /api/patients/{patient_id}/data?hours=24
+
+Response:
+{
+    "patient_id": "P001",
+    "data": [...1440 readings...],
+    "summary": {
+        "hr_avg": 87.3,
+        "spo2_avg": 96.8,
+        "critical_events": 2
+    }
+}
+```
+
+Endpoint 3: Get real-time status
+```
+GET /api/patients/{patient_id}/status
+
+Response:
+{
+    "patient_id": "P001",
+    "current_vitals": {
+        "hr": 95,
+        "spo2": 96.5,
+        "temperature": 37.2
+    },
+    "status": "ATTENTION",
+    "last_update": "2026-02-16T14:30:45Z"
+}
+```
+
+8.2 CODE BACKEND (Flask)
+
+```python
+from flask import Flask, request, jsonify
+from datetime import datetime, timedelta
+import psycopg2
+from psycopg2.extras import RealDictCursor
+
+app = Flask(__name__)
+
+# Database connection
+db_config = {
+    'host': 'localhost',
+    'database': 'smart_hospital',
+    'user': 'postgres',
+    'password': 'password',
+    'port': 5432
+}
+
+def get_db():
+    return psycopg2.connect(**db_config)
+
+
+@app.route('/api/patients/data', methods=['POST'])
+def receive_patient_data():
+    """Receive sensor data from gateway"""
+    try:
+        payload = request.get_json()
+        data_records = payload.get('data', [])
+        
+        if not data_records:
+            return jsonify({'error': 'No data'}), 400
+        
+        conn = get_db()
+        cur = conn.cursor()
+        
+        processed_count = 0
+        for record in data_records:
+            try:
+                # Insert into database
+                cur.execute("""
+                    INSERT INTO patient_vitals 
+                    (patient_id, heart_rate, spo2, temperature, timestamp)
+                    VALUES (%s, %s, %s, %s, %s)
+                """, (
+                    record['patient_id'],
+                    record['hr'],
+                    record['spo2'],
+                    record['temperature'],
+                    record['timestamp']
+                ))
+                processed_count += 1
+                
+            except Exception as e:
+                print(f"Error inserting record: {e}")
+                continue
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        # Check for alerts
+        alerts = check_alerts(data_records)
+        
+        return jsonify({
+            'status': 'success',
+            'records_processed': processed_count,
+            'alerts': alerts
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+def check_alerts(records):
+    """Check if any records generate alerts"""
+    alerts = []
+    
+    for record in records:
+        patient_id = record['patient_id']
+        hr = record['hr']
+        spo2 = record['spo2']
+        
+        # Check thresholds
+        if hr > 120:
+            alerts.append({
+                'patient_id': patient_id,
+                'type': 'HIGH_HEART_RATE',
+                'value': hr,
+                'severity': 'MEDIUM'
+            })
+        
+        if hr < 50:
+            alerts.append({
+                'patient_id': patient_id,
+                'type': 'LOW_HEART_RATE',
+                'value': hr,
+                'severity': 'MEDIUM'
+            })
+        
+        if spo2 < 92:
+            alerts.append({
+                'patient_id': patient_id,
+                'type': 'LOW_OXYGEN',
+                'value': spo2,
+                'severity': 'HIGH'
+            })
+    
+    return alerts
+
+
+@app.route('/api/patients/<patient_id>/data', methods=['GET'])
+def get_patient_data(patient_id):
+    """Get historical data for patient"""
+    try:
+        hours = request.args.get('hours', 24, type=int)
+        
+        conn = get_db()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        
+        cur.execute("""
+            SELECT heart_rate, spo2, temperature, timestamp
+            FROM patient_vitals
+            WHERE patient_id = %s
+            AND timestamp > NOW() - INTERVAL '%s hours'
+            ORDER BY timestamp DESC
+        """, (patient_id, hours))
+        
+        records = cur.fetchall()
+        cur.close()
+        conn.close()
+        
+        return jsonify({
+            'patient_id': patient_id,
+            'data': records,
+            'count': len(records)
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000, debug=False)
+```
+
+
+================================================================================
+9. TESTS ET VALIDATION
+================================================================================
+
+9.1 TEST LIST
+
+ÉTAPE 1: Test capteurs individuels
+┌─────────────────────────────┐
+│ ✓ MAX30102: HR readouts OK? │
+│ ✓ AD8232: ECG signal OK?    │
+│ ✓ DS18B20: Temp readings?   │
+│ ✓ Ranges correctes?         │
+│ ✓ Pas de drifts?            │
+└─────────────────────────────┘
+
+CODE TEST:
+```cpp
+void test_max30102() {
+    Serial.println("Testing MAX30102...");
+    
+    for (int i = 0; i < 10; i++) {
+        uint32_t irValue = particleSensor.getIR();
+        uint32_t redValue = particleSensor.getRed();
+        
+        Serial.print("IR: ");
+        Serial.print(irValue);
+        Serial.print(", Red: ");
+        Serial.println(redValue);
+        
+        delay(1000);
+    }
+}
+```
+
+ÉTAPE 2: Test transmission local
+┌────────────────────────────────┐
+│ ✓ Serial output on Arduino IDE  │
+│ ✓ JSON format correct           │
+│ ✓ Timestamps ok                 │
+│ ✓ No data loss                  │
+└────────────────────────────────┘
+
+ÉTAPE 3: Test WiFi connectivity
+┌─────────────────────────────────┐
+│ ✓ ESP32 connects to WiFi        │
+│ ✓ Signal strength ok            │
+│ ✓ Ping gateway (< 100 ms)       │
+│ ✓ HTTP POST successful          │
+└─────────────────────────────────┘
+
+ÉTAPE 4: Test gateway reception
+┌──────────────────────────────────┐
+│ ✓ Gateway receives data          │
+│ ✓ No data corruption             │
+│ ✓ Validation working             │
+│ ✓ Buffer management ok           │
+│ ✓ Logging working                │
+└──────────────────────────────────┘
+
+ÉTAPE 5: Test backend integration
+┌──────────────────────────────────┐
+│ ✓ Backend receives batches       │
+│ ✓ Database insertion ok          │
+│ ✓ Query performance ok           │
+│ ✓ Alert generation working       │
+└──────────────────────────────────┘
+
+ÉTAPE 6: Integration test
+┌──────────────────────────────────┐
+│ ✓ Sensor → ESP → Gateway → Back  │
+│ ✓ End-to-end data flow           │
+│ ✓ Latency < 5 seconds            │
+│ ✓ No data loss                   │
+│ ✓ Dashboard update real-time      │
+└──────────────────────────────────┘
+
+
+9.2 PERFORMANCE METRICS
+
+Latency (délai):
+  Sensor reading → Dashboard display
+  Target: < 5 secondes
+  Breakdown:
+    - Sensor sampling: 0.1 sec
+    - ESP processing: 0.1 sec
+    - WiFi transmission: 0.5 sec
+    - Gateway processing: 0.5 sec
+    - Batch upload: 1 sec
+    - Backend processing: 1 sec
+    - WebSocket update: 0.5 sec
+    = Total: ~4 secondes ✓
+
+Accuracy:
+  HR: ±5 bpm (medical standard: ±3 bpm)
+  SpO₂: ±2% (medical standard: ±2%)
+  Temperature: ±0.5°C (medical standard: ±0.1°C)
+
+Uptime:
+  Target: 99.5% availability
+  Maximum downtime: 3.6 hours/month
+
+
+================================================================================
+10. IMPLÉMENTATION ÉTAPE PAR ÉTAPE
+================================================================================
+
+PHASE 1: PRÉPARATION (Jour 1-2)
+═════════════════════════════════
+
+Étape 1.1: Procurer le matériel
+   ☐ Commander ESP32 (1x)
+   ☐ Commander MAX30102 (1x)
+   ☐ Commander AD8232 (1x)
+   ☐ Commander DS18B20 (1x)
+   ☐ Commander Raspberry Pi 4 (1x)
+   ☐ Commander électrodes ECG (pack 100)
+   ☐ Commander batterie Li-ion 3.7V 2000mAh
+   ☐ Commander câbles et connecteurs
+   Coût estimé: $100-150 USD
+
+Étape 1.2: Tester le matériel
+   ☐ Tester ESP32 (blink LED test)
+   ☐ Tester MAX30102 (I2C handshake)
+   ☐ Tester AD8232 (analogique readout)
+   ☐ Tester DS18B20 (1-Wire reading)
+
+Étape 1.3: Installer l'environnement de développement
+   ☐ Arduino IDE installation
+   ☐ ESP32 board package ajout
+   ☐ Librairies installation:
+     - Max30102: "DFRobot_MAX30102"
+     - DS18B20: "OneWire" + "DallasTemperature"
+     - WiFi: "WiFi" (builtin)
+     - JSON: "ArduinoJson"
+     ☐ Python 3.8+ installation (PC)
+     ☐ Flask installation (pip install flask)
+
+
+PHASE 2: DÉVELOPPEMENT ESP32 (Jour 3-5)
+══════════════════════════════════════════
+
+Étape 2.1: Code capteur MAX30102
+   ☐ Créer sketch Arduino pour MAX30102
+   ☐ I2C initialization
+   ☐ Read IR + Red values
+   ☐ Simple HR calculation
+   ☐ Serial output pour validation
+   
+Étape 2.2: Code capteur AD8232
+   ☐ ADC setup pour ECG
+   ☐ Sampling à 250 Hz
+   ☐ Filtre anti-bruit (moving average)
+   ☐ Serial output
+
+Étape 2.3: Code capteur DS18B20
+   ☐ 1-Wire initialization
+   ☐ Temperature reading
+   ☐ Serial output
+
+Étape 2.4: Intégration WiFi
+   ☐ WiFi SSID + password configuration
+   ☐ Connect au réseau
+   ☐ Test ping
+   ☐ HTTP POST test (avec curl)
+
+Étape 2.5: JSON payload creation
+   ☐ ArduinoJson library usage
+   ☐ Créer JSON object
+   ☐ Serialize et send
+   ☐ Test JSON format
+
+Étape 2.6: Test complet ESP32
+   ☐ Tous capteurs lisent simultanement
+   ☐ JSON créé correctement
+   ☐ WiFi transmit ok
+   ☐ Pas de crash ou reset
+
+
+PHASE 3: DÉVELOPPEMENT GATEWAY (Jour 6-7)
+═══════════════════════════════════════════
+
+Étape 3.1: Raspberry Pi setup
+   ☐ SD card imaging (Raspberry Pi OS)
+   ☐ WiFi configuration
+   ☐ SSH activation
+   ☐ SSH pour le développement distant
+
+Étape 3.2: Code Flask gateway
+   ☐ Flask app creation
+   ☐ /api/data endpoint implementation
+   ☐ JSON parsing
+   ☐ Validation logic
+   ☐ Data buffering (deque)
+
+Étape 3.3: Local logging
+   ☐ Sauvegarder données en .csv local
+   ☐ Log timestamps
+   ☐ Log validation errors
+
+Étape 3.4: Periodic upload
+   ☐ Background thread setup
+   ☐ Batch upload logic
+   ☐ Retry mechanism
+
+Étape 3.5: Test gateway
+   ☐ Run Flask on RPi
+   ☐ ESP32 envoie data à gateway
+   ☐ Gateway reçoit correctement
+   ☐ Validation working
+   ☐ Local log created
+
+
+PHASE 4: DÉVELOPPEMENT BACKEND (Jour 8-9)
+═══════════════════════════════════════════
+
+Étape 4.1: Database setup
+   ☐ PostgreSQL installation
+   ☐ Créer database "smart_hospital"
+   ☐ Créer table "patient_vitals"
+   ☐ Test connection
+
+Étape 4.2: Backend Flask API
+   ☐ /api/patients/data POST endpoint
+   ☐ Database insertion logic
+   ☐ Alert checking logic
+   ☐ Error handling
+   ☐ Logging
+
+Étape 4.3: GET endpoints
+   ☐ /api/patients/{id}/data
+   ☐ /api/patients/{id}/status
+   ☐ Query optimization
+
+Étape 4.4: Test backend
+   ☐ Gateway → Backend integration
+   ☐ Data persisted in DB
+   ☐ Queries return correct data
+   ☐ Alerts triggered
+
+
+PHASE 5: DASHBOARD + ML (Jour 10-14)
+═════════════════════════════════════════
+
+Étape 5.1: Simple dashboard
+   ☐ HTML/CSS/JS pour display
+   ☐ WebSocket pour real-time
+   ☐ Real-time vital signs
+   ☐ Alert display
+
+Étape 5.2: ML model integration
+   ☐ Train models (voir AI folder)
+   ☐ Load models dans backend
+   ☐ Feature extraction implementation
+   ☐ Inference call dans API
+
+Étape 5.3: Alert system
+   ☐ Alert types (HR, SpO2, anomaly)
+   ☐ Alert severity levels
+   ☐ Display alerts on dashboard
+   ☐ Send notifications (email/SMS)
+
+Étape 5.4: End-to-end test
+   ☐ Lancer ALL (capteur, gateway, backend, dashboard)
+   ☐ Data flow test
+   ☐ Latency measurement
+   ☐ Performance check
+
+
+PHASE 6: OPTIMISATION & DÉPLOIEMENT (Jour 15+)
+════════════════════════════════════════════════
+
+Étape 6.1: Performance optimization
+   ☐ Latency reduction
+   ☐ Compression (optional)
+   ☐ Caching strategy
+   ☐ Load testing
+
+Étape 6.2: Security hardening
+   ☐ API authentication (tokens)
+   ☐ HTTPS setup
+   ☐ Database encryption
+   ☐ Input validation
+
+Étape 6.3: Reliability
+   ☐ Failover mechanisms
+   ☐ Data backup strategy
+   ☐ Error recovery
+   ☐ Monitoring setup
+
+Étape 6.4: Documentation
+   ☐ API documentation
+   ☐ Deployment guide
+   ☐ User manual
+   ☐ Troubleshooting guide
+
+
+================================================================================
+11. CODE EXEMPLE POUR CHAQUE COMPOSANT
+================================================================================
+
+11.1 CODE ESP32 COMPLET
+
+```cpp
+/**
+ * Smart Hospital - ESP32 Sensor Node
+ * Reads HR, SpO2, ECG, Temperature
+ * Sends to gateway via HTTP
+ */
+
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include <ArduinoJson.h>
+#include <Wire.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
+
+// WiFi
+const char *ssid = "Hospital_WiFi";
+const char *password = "YourPassword123";
+const char *serverName = "http://192.168.1.100:5000/api/data";
+
+// Pins
+#define MAX30102_SDA 21
+#define MAX30102_SCL 22
+#define ECG_PIN 34
+#define TEMP_PIN 4
+
+// Temperature sensor
+OneWire oneWire(TEMP_PIN);
+DallasTemperature tempSensor(&oneWire);
+
+// Configuration
+const int SEND_INTERVAL = 5000;  // 5 seconds
+long lastSendTime = 0;
+
+// MAX30102 I2C address
+#define MAX30102_ADDR 0x57
+
+// Global variables
+float heartRate = 0;
+float spO2 = 0;
+float temperature = 0.0;
+int ecgRaw = 0;
+
+void setup() {
+    Serial.begin(115200);
+    delay(1000);
+    
+    Serial.println("\n\nStarting Smart Hospital ESP32...");
+    
+    // Initialize I2C
+    Wire.begin(MAX30102_SDA, MAX30102_SCL);
+    Wire.setClock(400000);
+    
+    // Initialize temperature sensor
+    tempSensor.begin();
+    
+    // Initialize MAX30102
+    if (!MAX30102_init()) {
+        Serial.println("ERROR: MAX30102 not found!");
+        while(1);
+    }
+    
+    // Connect WiFi
+    WiFi.begin(ssid, password);
+    int attempts = 0;
+    while (WiFi.status() != WL_CONNECTED && attempts < 20) {
+        delay(500);
+        Serial.print(".");
+        attempts++;
+    }
+    
+    if (WiFi.status() == WL_CONNECTED) {
+        Serial.println("\nWiFi connected!");
+        Serial.print("IP: ");
+        Serial.println(WiFi.localIP());
+    } else {
+        Serial.println("\nWiFi connection failed!");
+    }
+}
+
+void loop() {
+    // Read sensors
+    readMaxSensor();
+    readECG();
+    readTemperature();
+    
+    // Print readings
+    Serial.print("HR: ");
+    Serial.print(heartRate);
+    Serial.print(" | SpO2: ");
+    Serial.print(spO2);
+    Serial.print(" | Temp: ");
+    Serial.print(temperature);
+    Serial.print(" | ECG: ");
+    Serial.println(ecgRaw);
+    
+    // Send every SEND_INTERVAL
+    if (millis() - lastSendTime >= SEND_INTERVAL) {
+        sendToGateway();
+        lastSendTime = millis();
+    }
+    
+    delay(1000);
+}
+
+void readMaxSensor() {
+    // Simplified MAX30102 reading
+    // In production, use DFRobot_MAX30102 library
+    
+    Wire.beginTransmission(MAX30102_ADDR);
+    Wire.write(0x07);  // FIFO_DATA register
+    Wire.endTransmission();
+    
+    Wire.requestFrom(MAX30102_ADDR, 6);
+    if (Wire.available() >= 6) {
+        uint8_t data[6];
+        for (int i = 0; i < 6; i++) {
+            data[i] = Wire.read();
+        }
+        
+        // Calculate HR and SpO2 (simplified)
+        // Real implementation requires complex algorithm
+        heartRate = random(60, 100);  // Placeholder
+        spO2 = random(95, 99) + random(0, 100) / 100.0;  // Placeholder
+    }
+}
+
+void readECG() {
+    // Read analogique ECG signal
+    ecgRaw = analogRead(ECG_PIN);
+}
+
+void readTemperature() {
+    tempSensor.requestTemperatures();
+    temperature = tempSensor.getTempCByIndex(0);
+}
+
+void sendToGateway() {
+    if (WiFi.status() != WL_CONNECTED) {
+        Serial.println("WiFi not connected");
+        return;
+    }
+    
+    HTTPClient http;
+    http.begin(serverName);
+    http.addHeader("Content-Type", "application/json");
+    
+    // Create JSON
+    StaticJsonDocument<200> doc;
+    doc["patient_id"] = "P001";
+    doc["hr"] = heartRate;
+    doc["spo2"] = spO2;
+    doc["temperature"] = temperature;
+    doc["ecg_raw"] = ecgRaw;
+    doc["timestamp"] = getTimestamp();
+    
+    String json;
+    serializeJson(doc, json);
+    
+    Serial.print("Sending: ");
+    Serial.println(json);
+    
+    int httpCode = http.POST(json);
+    
+    if (httpCode > 0) {
+        String response = http.getString();
+        Serial.print("Response: ");
+        Serial.println(response);
+    } else {
+        Serial.print("HTTP Error: ");
+        Serial.println(httpCode);
+    }
+    
+    http.end();
+}
+
+String getTimestamp() {
+    // Placeholder - in production, use NTP
+    return "2026-02-16T12:00:00Z";
+}
+
+bool MAX30102_init() {
+    // Check if MAX30102 is accessible
+    Wire.beginTransmission(MAX30102_ADDR);
+    int error = Wire.endTransmission();
+    return error == 0;
+}
+```
+
+11.2 CODE GATEWAY (Flask)
+
+[Voir section 6.3]
+
+11.3 CODE BACKEND (Flask)
+
+[Voir section 8.2]
+
+
+================================================================================
+12. CHECKLIST FINALE
+================================================================================
+
+Avant déploiement en production:
+
+HARDWARE:
+  ☐ Tous capteurs testés isolément
+  ☐ Branchements vérifiés (pas de court-circuit)
+  ☐ Batterie chargée et stable
+  ☐ WiFi stable
+  ☐ LED indicateurs fonctionnent
+
+SOFTWARE:
+  ☐ Code ESP32 sans erreurs de compilation
+  ☐ Gateway reçoit données
+  ☐ Backend insère en base de données
+  ☐ Dashboard affiche données
+  ☐ Alerts générées correctement
+
+DONNÉES:
+  ☐ Calibration des capteurs effectuée
+  ☐ Values médicales valides
+  ☐ Pas de drifts ou offsets
+  ☐ Timestamps corrects
+
+SÉCURITÉ:
+  ☐ WiFi password set
+  ☐ Database sécurisée
+  ☐ HTTPS enabled (optionnel mais recommandé)
+  ☐ Logs activés
+
+DOCUMENTATION:
+  ☐ README créé
+  ☐ Diagrammes de connexion sauvegardés
+  ☐ Manuels des capteurs archivés
+  ☐ Code commenté
+
+
+================================================================================
+FIN DU DOCUMENT
+================================================================================
+Version: 1.0
+Date: Février 2026
+Status: Complet avec implémentation

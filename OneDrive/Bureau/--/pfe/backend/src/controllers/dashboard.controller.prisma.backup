@@ -1,0 +1,215 @@
+import { Response } from 'express';
+import { AuthRequest } from '../middlewares/auth';
+import logger from '../utils/logger';
+import { Patient, Alert, Bed, VitalSigns } from '../models';
+
+// Get dashboard statistics
+export const getDashboardStats = async (req: AuthRequest, res: Response) => {
+  try {
+    const [
+      totalPatients,
+      activePatients,
+      criticalPatients,
+      activeAlerts,
+      criticalAlerts,
+      totalBeds,
+      occupiedBeds,
+    ] = await Promise.all([
+      prisma.patient.count(),
+      prisma.patient.count({
+        where: { status: { in: ['ADMITTED', 'IN_TREATMENT', 'STABLE', 'CRITICAL'] } },
+      }),
+      prisma.patient.count({ where: { status: 'CRITICAL' } }),
+      prisma.alert.count({ where: { status: { in: ['ACTIVE', 'ACKNOWLEDGED'] } } }),
+      prisma.alert.count({
+        where: { status: { in: ['ACTIVE', 'ACKNOWLEDGED'] }, severity: 'CRITICAL' },
+      }),
+      prisma.bed.count(),
+      prisma.bed.count({ where: { status: 'OCCUPIED' } }),
+    ]);
+
+    const occupancyRate = totalBeds > 0 ? (occupiedBeds / totalBeds) * 100 : 0;
+
+    res.json({
+      success: true,
+      data: {
+        patients: {
+          total: totalPatients,
+          active: activePatients,
+          critical: criticalPatients,
+        },
+        alerts: {
+          active: activeAlerts,
+          critical: criticalAlerts,
+        },
+        beds: {
+          total: totalBeds,
+          occupied: occupiedBeds,
+          available: totalBeds - occupiedBeds,
+          occupancyRate: Math.round(occupancyRate * 10) / 10,
+        },
+      },
+    });
+  } catch (error: any) {
+    logger.error('Get dashboard stats error:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to fetch dashboard stats', statusCode: 500 },
+    });
+  }
+};
+
+// Get recent alerts
+export const getRecentAlerts = async (req: AuthRequest, res: Response) => {
+  try {
+    const { limit = 10 } = req.query;
+
+    const alerts = await prisma.alert.findMany({
+      where: { status: { in: ['ACTIVE', 'ACKNOWLEDGED'] } },
+      take: Number(limit),
+      orderBy: { timestamp: 'desc' },
+      include: {
+        patient: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            bed: {
+              include: {
+                room: {
+                  include: { floor: true },
+                },
+              },
+            },
+          },
+        },
+        vitalSigns: true,
+      },
+    });
+
+    res.json({
+      success: true,
+      data: { alerts },
+    });
+  } catch (error: any) {
+    logger.error('Get recent alerts error:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to fetch alerts', statusCode: 500 },
+    });
+  }
+};
+
+// Get patients overview
+export const getPatientsOverview = async (req: AuthRequest, res: Response) => {
+  try {
+    const patientsByStatus = await prisma.patient.groupBy({
+      by: ['status'],
+      _count: true,
+    });
+
+    const patientsWithActiveAlerts = await prisma.patient.findMany({
+      where: {
+        status: { in: ['ADMITTED', 'IN_TREATMENT', 'STABLE', 'CRITICAL'] },
+        alerts: {
+          some: {
+            status: { in: ['ACTIVE', 'ACKNOWLEDGED'] },
+          },
+        },
+      },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        status: true,
+        bed: {
+          include: {
+            room: { include: { floor: true } },
+          },
+        },
+        alerts: {
+          where: { status: { in: ['ACTIVE', 'ACKNOWLEDGED'] } },
+          take: 1,
+          orderBy: { timestamp: 'desc' },
+        },
+      },
+      take: 20,
+    });
+
+    res.json({
+      success: true,
+      data: {
+        statusDistribution: patientsByStatus,
+        patientsWithAlerts: patientsWithActiveAlerts,
+      },
+    });
+  } catch (error: any) {
+    logger.error('Get patients overview error:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to fetch patients overview', statusCode: 500 },
+    });
+  }
+};
+
+// Get occupancy data
+export const getOccupancyData = async (req: AuthRequest, res: Response) => {
+  try {
+    const floors = await prisma.floor.findMany({
+      include: {
+        rooms: {
+          include: {
+            beds: {
+              include: {
+                patient: {
+                  select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                    status: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const occupancyByFloor = floors.map((floor) => {
+      const totalBeds = floor.rooms.reduce((sum, room) => sum + room.beds.length, 0);
+      const occupiedBeds = floor.rooms.reduce(
+        (sum, room) => sum + room.beds.filter((bed) => bed.status === 'OCCUPIED').length,
+        0
+      );
+
+      return {
+        floorId: floor.id,
+        floorNumber: floor.floorNumber,
+        name: floor.name,
+        totalBeds,
+        occupiedBeds,
+        availableBeds: totalBeds - occupiedBeds,
+        occupancyRate: totalBeds > 0 ? Math.round((occupiedBeds / totalBeds) * 100) : 0,
+        rooms: floor.rooms.map((room) => ({
+          roomId: room.id,
+          roomNumber: room.roomNumber,
+          type: room.type,
+          totalBeds: room.beds.length,
+          occupiedBeds: room.beds.filter((bed) => bed.status === 'OCCUPIED').length,
+        })),
+      };
+    });
+
+    res.json({
+      success: true,
+      data: { floors: occupancyByFloor },
+    });
+  } catch (error: any) {
+    logger.error('Get occupancy data error:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to fetch occupancy data', statusCode: 500 },
+    });
+  }
+};
