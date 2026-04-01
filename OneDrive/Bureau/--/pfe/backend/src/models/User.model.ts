@@ -13,6 +13,7 @@ export interface IUser extends Document {
   firstName: string;
   lastName: string;
   phone?: string;
+  profilePicture?: string;
   role: UserRole;
   isActive: boolean;
   createdAt: Date;
@@ -45,6 +46,10 @@ const userSchema = new Schema<IUser>(
       trim: true,
     },
     phone: {
+      type: String,
+      trim: true,
+    },
+    profilePicture: {
       type: String,
       trim: true,
     },

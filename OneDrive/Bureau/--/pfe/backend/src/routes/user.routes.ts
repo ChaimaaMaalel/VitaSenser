@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authenticate, authorize } from '../middlewares/auth';
 import { UserRole } from '../models';
 import { User, Admin, Doctor, Nurse } from '../models';
+import { profilePictureUpload } from '../middlewares/upload';
 import logger from '../utils/logger';
 
 const router = Router();
@@ -55,9 +56,21 @@ router.get('/:id', async (req, res) => {
 });
 
 // Update user
-router.put('/:id', authorize(UserRole.ADMIN), async (req, res) => {
+router.put('/:id', authorize(UserRole.ADMIN), profilePictureUpload, async (req, res) => {
   try {
-    const { firstName, lastName, phone, role, specialization, licenseNumber, shift, certificationLevel, department } = req.body;
+    const {
+      firstName,
+      lastName,
+      phone,
+      profilePicture,
+      role,
+      specialization,
+      licenseNumber,
+      shift,
+      certificationLevel,
+      department,
+      removeProfilePicture,
+    } = req.body;
     
     const user = await User.findById(req.params.id);
     if (!user) {
@@ -71,6 +84,13 @@ router.put('/:id', authorize(UserRole.ADMIN), async (req, res) => {
     user.firstName = firstName || user.firstName;
     user.lastName = lastName || user.lastName;
     user.phone = phone || user.phone;
+    if (req.file) {
+      user.profilePicture = `/uploads/profile-pictures/${req.file.filename}`;
+    } else if (removeProfilePicture === 'true' || removeProfilePicture === true) {
+      user.profilePicture = undefined;
+    } else if (typeof profilePicture !== 'undefined') {
+      user.profilePicture = profilePicture || undefined;
+    }
 
     // Update role-specific fields
     if (user.role === UserRole.DOCTOR) {

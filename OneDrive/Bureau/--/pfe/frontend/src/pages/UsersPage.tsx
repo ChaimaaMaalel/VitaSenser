@@ -1,7 +1,8 @@
 import { useEffect, useState, ChangeEvent, FormEvent } from 'react';
-import { UserCog, Shield, Stethoscope, Users, UserCheck, Plus, Trash2, Pencil, X, Search } from 'lucide-react';
+import { UserCog, Stethoscope, Users, UserCheck, Plus, Trash2, Pencil, X, Search } from 'lucide-react';
 import StatsCard from '../components/dashboard/StatsCard';
 import api from '../lib/api';
+import { resolveMediaUrl } from '../lib/media';
 import toast from 'react-hot-toast';
 
 interface DirectoryUser {
@@ -11,6 +12,7 @@ interface DirectoryUser {
   firstName: string;
   lastName: string;
   phone?: string;
+  profilePicture?: string;
   role: 'ADMIN' | 'DOCTOR' | 'NURSE';
   isActive?: boolean;
   specialization?: string;
@@ -73,9 +75,15 @@ export default function UsersPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState<DirectoryUser | null>(null);
   const [formData, setFormData] = useState<FormData>(initialFormState);
+  const [profilePictureFile, setProfilePictureFile] = useState<File | null>(null);
+  const [profilePicturePreview, setProfilePicturePreview] = useState('');
+  const [removeProfilePicture, setRemoveProfilePicture] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<'ALL' | 'DOCTOR' | 'NURSE'>('ALL');
+
+  const getInitials = (firstName?: string, lastName?: string) =>
+    `${(firstName || '').charAt(0)}${(lastName || '').charAt(0)}`.toUpperCase() || 'U';
 
   useEffect(() => {
     fetchData();
@@ -113,10 +121,14 @@ export default function UsersPage() {
         certificationLevel: user.certificationLevel || '',
         department: user.department || '',
       });
+      setProfilePicturePreview(resolveMediaUrl(user.profilePicture));
     } else {
       setEditingUser(null);
       setFormData(initialFormState);
+      setProfilePicturePreview('');
     }
+    setProfilePictureFile(null);
+    setRemoveProfilePicture(false);
     setShowModal(true);
   };
 
@@ -124,6 +136,9 @@ export default function UsersPage() {
     setShowModal(false);
     setEditingUser(null);
     setFormData(initialFormState);
+    setProfilePictureFile(null);
+    setProfilePicturePreview('');
+    setRemoveProfilePicture(false);
   };
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -132,6 +147,24 @@ export default function UsersPage() {
       ...prev,
       [name]: value,
     }));
+  };
+
+  const handleProfilePictureChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] || null;
+    setProfilePictureFile(file);
+    setRemoveProfilePicture(false);
+
+    if (file) {
+      setProfilePicturePreview(URL.createObjectURL(file));
+      return;
+    }
+
+    if (editingUser?.profilePicture) {
+      setProfilePicturePreview(resolveMediaUrl(editingUser.profilePicture));
+      return;
+    }
+
+    setProfilePicturePreview('');
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -144,18 +177,35 @@ export default function UsersPage() {
 
     try {
       setSubmitting(true);
+
+      const payload = new FormData();
+      payload.append('email', formData.email);
+      payload.append('firstName', formData.firstName);
+      payload.append('lastName', formData.lastName);
+      payload.append('phone', formData.phone || '');
+      payload.append('role', formData.role);
+      payload.append('specialization', formData.specialization || '');
+      payload.append('licenseNumber', formData.licenseNumber || '');
+      payload.append('shift', formData.shift || 'DAY');
+      payload.append('certificationLevel', formData.certificationLevel || '');
+      payload.append('department', formData.department || '');
+
+      if (profilePictureFile) {
+        payload.append('profilePicture', profilePictureFile);
+      } else if (editingUser && removeProfilePicture) {
+        payload.append('removeProfilePicture', 'true');
+      }
       
       if (editingUser) {
-        // Update user
-        await api.put(`/users/${editingUser._id || editingUser.id}`, formData);
+        await api.put(`/users/${editingUser._id || editingUser.id}`, payload);
         toast.success('User updated successfully');
       } else {
-        // Create new user
         if (!formData.password) {
           toast.error('Password is required for new user');
           return;
         }
-        await api.post('/auth/register', formData);
+        payload.append('password', formData.password);
+        await api.post('/auth/register', payload);
         toast.success('User created successfully');
       }
       
@@ -193,7 +243,6 @@ export default function UsersPage() {
   }
 
   const totalUsers = users.filter((u) => u.role !== 'ADMIN').length;
-  const adminCount = users.filter((user) => user.role === 'ADMIN').length;
   const doctorCount = users.filter((user) => user.role === 'DOCTOR').length;
   const nurseCount = users.filter((user) => user.role === 'NURSE').length;
 
@@ -321,7 +370,22 @@ export default function UsersPage() {
                 filteredUsers.map((user) => (
                   <tr key={user._id || user.id} className="border-b border-gray-200 hover:bg-gray-50">
                     <td className="px-6 py-4 text-sm text-gray-900 font-medium">
-                      {user.firstName} {user.lastName}
+                      <div className="flex items-center gap-3">
+                        {user.profilePicture ? (
+                          <img
+                            src={resolveMediaUrl(user.profilePicture)}
+                            alt={`${user.firstName} ${user.lastName}`}
+                            className="h-9 w-9 rounded-full object-cover border border-gray-200"
+                          />
+                        ) : (
+                          <div className="h-9 w-9 rounded-full bg-gray-200 text-gray-700 flex items-center justify-center text-xs font-semibold">
+                            {getInitials(user.firstName, user.lastName)}
+                          </div>
+                        )}
+                        <span>
+                          {user.firstName} {user.lastName}
+                        </span>
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">{user.email}</td>
                     <td className="px-6 py-4 text-sm">
@@ -434,6 +498,35 @@ export default function UsersPage() {
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 />
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-900 mb-1">
+                  Profile Picture
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleProfilePictureChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+                {profilePicturePreview && !removeProfilePicture && (
+                  <img
+                    src={profilePicturePreview}
+                    alt="Profile preview"
+                    className="h-16 w-16 rounded-full object-cover border border-gray-200"
+                  />
+                )}
+                {editingUser && (
+                  <label className="inline-flex items-center gap-2 text-sm text-gray-600">
+                    <input
+                      type="checkbox"
+                      checked={removeProfilePicture}
+                      onChange={(event) => setRemoveProfilePicture(event.target.checked)}
+                    />
+                    Remove current picture
+                  </label>
+                )}
               </div>
 
               <div>

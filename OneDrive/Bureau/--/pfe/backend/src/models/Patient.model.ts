@@ -17,6 +17,7 @@ export enum PatientStatus {
 export interface IPatient extends Document {
   firstName: string;
   lastName: string;
+  profilePicture?: string;
   dateOfBirth: Date;
   gender: Gender;
   bloodType?: string;
@@ -56,6 +57,10 @@ const patientSchema = new Schema<IPatient>(
     lastName: {
       type: String,
       required: true,
+      trim: true,
+    },
+    profilePicture: {
+      type: String,
       trim: true,
     },
     dateOfBirth: {

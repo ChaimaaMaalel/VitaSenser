@@ -29,6 +29,7 @@ model User {
   firstName     String
   lastName      String
   phone         String?
+  profilePicture String?
   role          UserRole
   isActive      Boolean        @default(true)
   createdAt     DateTime       @default(now())
@@ -192,6 +193,7 @@ model Patient {
   id              String         @id @default(uuid())
   firstName       String
   lastName        String
+  profilePicture  String?
   dateOfBirth     DateTime
   gender          Gender
   bloodType       String?

@@ -1,0 +1,13 @@
+# Global media ignores (images/pictures)
+**/*.png
+**/*.jpg
+**/*.jpeg
+**/*.gif
+**/*.webp
+**/*.bmp
+**/*.tiff
+**/*.svg
+
+# Picture folders
+frontend/assets/pictures/
+backend/uploads/profile-pictures/

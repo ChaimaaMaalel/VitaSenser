@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { body } from 'express-validator';
 import { validate } from '../middlewares/validate';
+import { profilePictureUpload } from '../middlewares/upload';
 import * as authController from '../controllers/auth.controller';
 
 const router = Router();
@@ -8,6 +9,7 @@ const router = Router();
 // Register
 router.post(
   '/register',
+  profilePictureUpload,
   [
     body('email').isEmail().withMessage('Valid email is required'),
     body('password')

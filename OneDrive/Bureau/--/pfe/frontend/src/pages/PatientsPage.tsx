@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Users, Activity, Bed, UserMinus, X, Eye, Pencil, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../lib/api';
+import { resolveMediaUrl } from '../lib/media';
 import { useAuthStore } from '../store/authStore';
 import StatsCard from '../components/dashboard/StatsCard';
 
@@ -22,6 +23,7 @@ interface PatientRecord {
   id?: string;
   firstName: string;
   lastName: string;
+  profilePicture?: string;
   dateOfBirth?: string;
   gender?: string;
   bloodType?: string;
@@ -103,6 +105,9 @@ export default function PatientsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
   const [formData, setFormData] = useState<PatientFormData>(initialFormState);
+  const [profilePictureFile, setProfilePictureFile] = useState<File | null>(null);
+  const [profilePicturePreview, setProfilePicturePreview] = useState('');
+  const [removeProfilePicture, setRemoveProfilePicture] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<PatientRecord | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [deleteLoadingId, setDeleteLoadingId] = useState<string | null>(null);
@@ -163,6 +168,9 @@ export default function PatientsPage() {
       .filter(Boolean);
     return names.length > 0 ? names.join(', ') : 'Not assigned';
   };
+
+  const getPatientInitials = (firstName?: string, lastName?: string) =>
+    `${(firstName || '').charAt(0)}${(lastName || '').charAt(0)}`.toUpperCase() || 'P';
 
   const getStatusBadgeClasses = (status?: string) => {
     const value = (status || '').toUpperCase();
@@ -234,6 +242,9 @@ export default function PatientsPage() {
   const openCreateModal = () => {
     setModalMode('create');
     resetForm();
+    setProfilePictureFile(null);
+    setProfilePicturePreview('');
+    setRemoveProfilePicture(false);
     if (canManagePatients && doctorOptions.length === 0) {
       fetchPatientMetadata();
     }
@@ -258,6 +269,9 @@ export default function PatientsPage() {
           .filter(Boolean) as string[])[0] || '',
       bedId: patient.bed?._id || '',
     });
+    setProfilePicturePreview(resolveMediaUrl(patient.profilePicture));
+    setProfilePictureFile(null);
+    setRemoveProfilePicture(false);
     setSelectedFloorId(patient.bed?.room?.floor?._id || '');
     setSelectedRoomId(patient.bed?.room?._id || '');
     if (canManagePatients && doctorOptions.length === 0) {
@@ -269,6 +283,9 @@ export default function PatientsPage() {
   const closeModal = () => {
     setIsModalOpen(false);
     resetForm();
+    setProfilePictureFile(null);
+    setProfilePicturePreview('');
+    setRemoveProfilePicture(false);
     setSubmitting(false);
   };
 
@@ -306,6 +323,24 @@ export default function PatientsPage() {
     }
   };
 
+  const handleProfilePictureChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] || null;
+    setProfilePictureFile(file);
+    setRemoveProfilePicture(false);
+
+    if (file) {
+      setProfilePicturePreview(URL.createObjectURL(file));
+      return;
+    }
+
+    if (selectedPatient?.profilePicture) {
+      setProfilePicturePreview(resolveMediaUrl(selectedPatient.profilePicture));
+      return;
+    }
+
+    setProfilePicturePreview('');
+  };
+
   useEffect(() => {
     fetchPatients();
   }, []);
@@ -322,23 +357,36 @@ export default function PatientsPage() {
 
     setSubmitting(true);
 
-    const payload: Record<string, any> = {
-      firstName: formData.firstName.trim(),
-      lastName: formData.lastName.trim(),
-      dateOfBirth: formData.dateOfBirth,
-      gender: formData.gender,
-      bloodType: formData.bloodType || undefined,
-      medicalHistory: formData.medicalHistory || undefined,
-      allergies: formData.allergies
-        .split(',')
-        .map((item) => item.trim())
-        .filter(Boolean),
-      bedId: formData.bedId || null,
-      assignedDoctorId: formData.assignedDoctorId || null,
-    };
+    const payload = new FormData();
+    payload.append('firstName', formData.firstName.trim());
+    payload.append('lastName', formData.lastName.trim());
+    payload.append('dateOfBirth', formData.dateOfBirth);
+    payload.append('gender', formData.gender);
+    payload.append('bloodType', formData.bloodType || '');
+    payload.append('medicalHistory', formData.medicalHistory || '');
+    payload.append(
+      'allergies',
+      JSON.stringify(
+        formData.allergies
+          .split(',')
+          .map((item) => item.trim())
+          .filter(Boolean)
+      )
+    );
+    payload.append('bedId', formData.bedId || '');
+    payload.append('assignedDoctorId', formData.assignedDoctorId || '');
 
     if (isAdmin) {
-      payload.assignedNurseIds = formData.assignedNurseId ? [formData.assignedNurseId] : [];
+      payload.append(
+        'assignedNurseIds',
+        JSON.stringify(formData.assignedNurseId ? [formData.assignedNurseId] : [])
+      );
+    }
+
+    if (profilePictureFile) {
+      payload.append('profilePicture', profilePictureFile);
+    } else if (modalMode === 'edit' && removeProfilePicture) {
+      payload.append('removeProfilePicture', 'true');
     }
 
     try {
@@ -777,10 +825,25 @@ export default function PatientsPage() {
                   {paginatedPatients.map((patient: any) => (
                     <tr key={patient._id || patient.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4">
-                        <div className="font-medium text-gray-900">
-                          {patient.firstName} {patient.lastName}
+                        <div className="flex items-center gap-3">
+                          {patient.profilePicture ? (
+                            <img
+                              src={resolveMediaUrl(patient.profilePicture)}
+                              alt={`${patient.firstName} ${patient.lastName}`}
+                              className="h-10 w-10 rounded-full object-cover border border-gray-200"
+                            />
+                          ) : (
+                            <div className="h-10 w-10 rounded-full bg-gray-200 text-gray-700 flex items-center justify-center text-xs font-semibold">
+                              {getPatientInitials(patient.firstName, patient.lastName)}
+                            </div>
+                          )}
+                          <div>
+                            <div className="font-medium text-gray-900">
+                              {patient.firstName} {patient.lastName}
+                            </div>
+                            <div className="text-sm text-gray-500">{patient._id || patient.id}</div>
+                          </div>
                         </div>
-                        <div className="text-sm text-gray-500">{patient._id || patient.id}</div>
                       </td>
                       <td className="px-6 py-4">
                         <span className={`${getStatusBadgeClasses(patient.status)} capitalize`}>
@@ -952,6 +1015,35 @@ export default function PatientsPage() {
                     onChange={handleInputChange}
                     required
                   />
+                </div>
+                <div>
+                  <label className="label" htmlFor="profilePicture">
+                    Profile Picture
+                  </label>
+                  <input
+                    id="profilePicture"
+                    type="file"
+                    accept="image/*"
+                    className="input"
+                    onChange={handleProfilePictureChange}
+                  />
+                  {profilePicturePreview && !removeProfilePicture && (
+                    <img
+                      src={profilePicturePreview}
+                      alt="Profile preview"
+                      className="mt-2 h-16 w-16 rounded-full object-cover border border-gray-200"
+                    />
+                  )}
+                  {modalMode === 'edit' && (
+                    <label className="mt-2 inline-flex items-center gap-2 text-sm text-gray-600">
+                      <input
+                        type="checkbox"
+                        checked={removeProfilePicture}
+                        onChange={(event) => setRemoveProfilePicture(event.target.checked)}
+                      />
+                      Remove current picture
+                    </label>
+                  )}
                 </div>
                 <div>
                   <label className="label" htmlFor="gender">

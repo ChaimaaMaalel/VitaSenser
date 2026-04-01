@@ -1,8 +1,12 @@
 import { Bell, Search } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
+import { resolveMediaUrl } from '../../lib/media';
 
 export default function Header() {
   const { user } = useAuthStore();
+
+  const initials = `${user?.firstName?.[0] || ''}${user?.lastName?.[0] || ''}`.toUpperCase();
+  const profileImageUrl = resolveMediaUrl(user?.profilePicture);
 
   return (
     <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6">
@@ -28,11 +32,17 @@ export default function Header() {
 
         {/* User Badge */}
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-50">
-          <div className="w-6 h-6 rounded-full bg-primary-600 flex items-center justify-center">
-            <span className="text-white text-xs font-bold">
-              {user?.firstName[0]}{user?.lastName[0]}
-            </span>
-          </div>
+          {profileImageUrl ? (
+            <img
+              src={profileImageUrl}
+              alt="Profile"
+              className="w-6 h-6 rounded-full object-cover border border-primary-200"
+            />
+          ) : (
+            <div className="w-6 h-6 rounded-full bg-primary-600 flex items-center justify-center">
+              <span className="text-white text-xs font-bold">{initials || 'U'}</span>
+            </div>
+          )}
           <span className="text-sm font-medium text-primary-700 capitalize">
             {user?.role.toLowerCase()}
           </span>

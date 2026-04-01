@@ -5,6 +5,8 @@ import StatsCard from './StatsCard';
 import toast from 'react-hot-toast';
 import { formatDistanceToNow } from 'date-fns';
 import clsx from 'clsx';
+import { useAuthStore } from '../../store/authStore';
+import { resolveMediaUrl } from '../../lib/media';
 
 interface Patient {
   _id: string;
@@ -74,8 +76,12 @@ interface NurseDashboardData {
 }
 
 export default function NurseDashboard() {
+  const user = useAuthStore((state) => state.user);
   const [dashboardData, setDashboardData] = useState<NurseDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const initials = `${user?.firstName?.[0] || ''}${user?.lastName?.[0] || ''}`.toUpperCase();
+  const profileImageUrl = resolveMediaUrl(user?.profilePicture);
 
   useEffect(() => {
     fetchNurseDashboard();
@@ -145,8 +151,21 @@ export default function NurseDashboard() {
     <div className="space-y-6">
       {/* Nurse Info Card */}
       <div className="card bg-gradient-to-r from-green-50 to-emerald-50">
-        <div className="flex items-start justify-between mb-4">
-          <div>
+        <div className="flex items-stretch gap-4 mb-4">
+          <div className="w-28 h-28 shrink-0">
+            {profileImageUrl ? (
+              <img
+                src={profileImageUrl}
+                alt="Profile"
+                className="h-full w-full rounded-2xl object-cover border border-green-200"
+              />
+            ) : (
+              <div className="h-full w-full rounded-2xl bg-green-100 text-green-700 font-semibold flex items-center justify-center text-2xl">
+                {initials || 'N'}
+              </div>
+            )}
+          </div>
+          <div className="flex-1">
             <h1 className="text-3xl font-bold text-gray-900">{dashboardData?.nurse.name}</h1>
             <div className="flex items-center gap-2 mt-2">
               <span className={clsx('badge capitalize', getShiftColor(dashboardData?.nurse.shift || ''))}>
@@ -164,7 +183,9 @@ export default function NurseDashboard() {
               </p>
             )}
           </div>
-          <Heart className="w-12 h-12 text-green-500 opacity-50" />
+          <div className="flex items-start">
+            <Heart className="w-12 h-12 text-green-500 opacity-50" />
+          </div>
         </div>
       </div>
 

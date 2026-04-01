@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authenticate, authorize } from '../middlewares/auth';
+import { profilePictureUpload } from '../middlewares/upload';
 import * as patientController from '../controllers/patient.controller';
 import { UserRole } from '../models';
 
@@ -25,6 +26,7 @@ router.get('/:id', patientController.getPatientById);
 router.post(
   '/',
   authorize(UserRole.ADMIN, UserRole.NURSE),
+  profilePictureUpload,
   patientController.createPatient
 );
 
@@ -32,6 +34,7 @@ router.post(
 router.put(
   '/:id',
   authorize(UserRole.ADMIN, UserRole.NURSE),
+  profilePictureUpload,
   patientController.updatePatient
 );
 

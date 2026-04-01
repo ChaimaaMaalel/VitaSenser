@@ -5,6 +5,8 @@ import StatsCard from './StatsCard';
 import toast from 'react-hot-toast';
 import { formatDistanceToNow } from 'date-fns';
 import clsx from 'clsx';
+import { useAuthStore } from '../../store/authStore';
+import { resolveMediaUrl } from '../../lib/media';
 
 interface Patient {
   _id: string;
@@ -63,10 +65,14 @@ interface AdminDashboardData {
 }
 
 export default function AdminDashboard() {
+  const user = useAuthStore((state) => state.user);
   const [dashboardData, setDashboardData] = useState<AdminDashboardData | null>(null);
   const [patientsWithAlerts, setPatientsWithAlerts] = useState<Patient[]>([]);
   const [recentAlerts, setRecentAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const initials = `${user?.firstName?.[0] || ''}${user?.lastName?.[0] || ''}`.toUpperCase();
+  const profileImageUrl = resolveMediaUrl(user?.profilePicture);
 
   useEffect(() => {
     fetchDashboardData();
@@ -144,7 +150,20 @@ export default function AdminDashboard() {
               </div>
             </div>
           </div>
-          <Building className="w-12 h-12 text-blue-500 opacity-50" />
+          <div className="flex items-center gap-3">
+            {profileImageUrl ? (
+              <img
+                src={profileImageUrl}
+                alt="Profile"
+                className="w-14 h-14 rounded-full object-cover border border-blue-200"
+              />
+            ) : (
+              <div className="w-14 h-14 rounded-full bg-blue-100 text-blue-700 font-semibold flex items-center justify-center">
+                {initials || 'A'}
+              </div>
+            )}
+            <Building className="w-12 h-12 text-blue-500 opacity-50" />
+          </div>
         </div>
       </div>
 

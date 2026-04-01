@@ -7,7 +7,24 @@ import { User, Admin, Doctor, Nurse, UserRole } from '../models';
 // Register user
 export const register = async (req: AuthRequest, res: Response) => {
   try {
-    const { email, password, firstName, lastName, phone, role, specialization, licenseNumber, shift, certificationLevel, department, permissions } = req.body;
+    const {
+      email,
+      password,
+      firstName,
+      lastName,
+      phone,
+      profilePicture,
+      role,
+      specialization,
+      licenseNumber,
+      shift,
+      certificationLevel,
+      department,
+      permissions,
+    } = req.body;
+    const uploadedProfilePicture = req.file
+      ? `/uploads/profile-pictures/${req.file.filename}`
+      : undefined;
 
     // Check if user exists
     const existingUser = await User.findOne({ email });
@@ -29,6 +46,7 @@ export const register = async (req: AuthRequest, res: Response) => {
           firstName,
           lastName,
           phone,
+          profilePicture: uploadedProfilePicture || profilePicture,
           role: UserRole.ADMIN,
           permissions: permissions || ['ALL'],
           department: department || 'Administration',
@@ -42,6 +60,7 @@ export const register = async (req: AuthRequest, res: Response) => {
           firstName,
           lastName,
           phone,
+          profilePicture: uploadedProfilePicture || profilePicture,
           role: UserRole.DOCTOR,
           specialization: specialization || 'General',
           licenseNumber: licenseNumber || `DOC-${Date.now()}`,
@@ -57,6 +76,7 @@ export const register = async (req: AuthRequest, res: Response) => {
           firstName,
           lastName,
           phone,
+          profilePicture: uploadedProfilePicture || profilePicture,
           role: UserRole.NURSE,
           shift: shift || 'DAY',
           certificationLevel: certificationLevel || 'RN',

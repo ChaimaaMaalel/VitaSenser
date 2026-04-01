@@ -5,6 +5,8 @@ import StatsCard from './StatsCard';
 import toast from 'react-hot-toast';
 import { formatDistanceToNow } from 'date-fns';
 import clsx from 'clsx';
+import { useAuthStore } from '../../store/authStore';
+import { resolveMediaUrl } from '../../lib/media';
 
 interface Patient {
   _id: string;
@@ -63,8 +65,12 @@ interface DoctorDashboardData {
 }
 
 export default function DoctorDashboard() {
+  const user = useAuthStore((state) => state.user);
   const [dashboardData, setDashboardData] = useState<DoctorDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const initials = `${user?.firstName?.[0] || ''}${user?.lastName?.[0] || ''}`.toUpperCase();
+  const profileImageUrl = resolveMediaUrl(user?.profilePicture);
 
   useEffect(() => {
     fetchDoctorDashboard();
@@ -121,8 +127,21 @@ export default function DoctorDashboard() {
     <div className="space-y-6">
       {/* Doctor Info Card */}
       <div className="card bg-gradient-to-r from-blue-50 to-indigo-50">
-        <div className="flex items-start justify-between mb-4">
-          <div>
+        <div className="flex items-stretch gap-4 mb-4">
+          <div className="w-28 h-28 shrink-0">
+            {profileImageUrl ? (
+              <img
+                src={profileImageUrl}
+                alt="Profile"
+                className="h-full w-full rounded-2xl object-cover border border-blue-200"
+              />
+            ) : (
+              <div className="h-full w-full rounded-2xl bg-blue-100 text-blue-700 font-semibold flex items-center justify-center text-2xl">
+                {initials || 'D'}
+              </div>
+            )}
+          </div>
+          <div className="flex-1">
             <h1 className="text-3xl font-bold text-gray-900">{dashboardData?.doctor.name}</h1>
             <p className="text-gray-600 mt-1">{dashboardData?.doctor.specialization}</p>
             {dashboardData?.doctor.department && (
@@ -131,7 +150,9 @@ export default function DoctorDashboard() {
               </p>
             )}
           </div>
-          <Stethoscope className="w-12 h-12 text-blue-500 opacity-50" />
+          <div className="flex items-start">
+            <Stethoscope className="w-12 h-12 text-blue-500 opacity-50" />
+          </div>
         </div>
       </div>
 

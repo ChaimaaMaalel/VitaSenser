@@ -9,10 +9,14 @@ import {
   LogOut,
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
+import { resolveMediaUrl } from '../../lib/media';
 import clsx from 'clsx';
 
 export default function Sidebar() {
   const { user, logout } = useAuthStore();
+
+  const initials = `${user?.firstName?.[0] || ''}${user?.lastName?.[0] || ''}`.toUpperCase();
+  const profileImageUrl = resolveMediaUrl(user?.profilePicture);
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -37,11 +41,17 @@ export default function Sidebar() {
       {/* User Info */}
       <div className="p-4 border-b border-gray-200">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center">
-            <span className="text-primary-700 font-semibold text-sm">
-              {user?.firstName[0]}{user?.lastName[0]}
-            </span>
-          </div>
+          {profileImageUrl ? (
+            <img
+              src={profileImageUrl}
+              alt="Profile"
+              className="w-10 h-10 rounded-full object-cover border border-gray-200"
+            />
+          ) : (
+            <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center">
+              <span className="text-primary-700 font-semibold text-sm">{initials || 'U'}</span>
+            </div>
+          )}
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-gray-900 truncate">
               {user?.firstName} {user?.lastName}

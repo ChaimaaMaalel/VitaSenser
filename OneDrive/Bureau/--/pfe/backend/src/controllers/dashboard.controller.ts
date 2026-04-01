@@ -103,12 +103,12 @@ export const getDoctorDashboard = async (req: AuthRequest, res: Response) => {
     const doctor = await Doctor.findById(req.user.id)
       .populate({
         path: 'patients',
-        select: '_id firstName lastName status bedId medicalCondition',
+        select: '_id firstName lastName status bed diagnosis',
         populate: {
-          path: 'bedId',
+          path: 'bed',
           populate: {
-            path: 'roomId',
-            populate: { path: 'floorId' }
+            path: 'room',
+            populate: { path: 'floor' }
           }
         }
       })
@@ -136,11 +136,11 @@ export const getDoctorDashboard = async (req: AuthRequest, res: Response) => {
         status: 'CRITICAL',
       }),
       Alert.countDocuments({
-        patientId: { $in: patientIds },
+        patient: { $in: patientIds },
         status: { $in: ['ACTIVE', 'ACKNOWLEDGED'] },
       }),
       Alert.countDocuments({
-        patientId: { $in: patientIds },
+        patient: { $in: patientIds },
         status: { $in: ['ACTIVE', 'ACKNOWLEDGED'] },
         severity: 'CRITICAL',
       }),
@@ -148,19 +148,19 @@ export const getDoctorDashboard = async (req: AuthRequest, res: Response) => {
 
     // Get doctor's recent alerts
     const recentAlerts = await Alert.find({
-      patientId: { $in: patientIds },
+      patient: { $in: patientIds },
       status: { $in: ['ACTIVE', 'ACKNOWLEDGED'] },
     })
       .limit(10)
       .sort({ timestamp: -1 })
       .populate({
-        path: 'patientId',
-        select: '_id firstName lastName bedId',
+        path: 'patient',
+        select: '_id firstName lastName bed',
         populate: {
-          path: 'bedId',
+          path: 'bed',
           populate: {
-            path: 'roomId',
-            populate: { path: 'floorId' }
+            path: 'room',
+            populate: { path: 'floor' }
           }
         }
       })
@@ -210,12 +210,12 @@ export const getNurseDashboard = async (req: AuthRequest, res: Response) => {
     const nurse = await Nurse.findById(req.user.id)
       .populate({
         path: 'patients',
-        select: '_id firstName lastName status bedId medicalCondition vitalSignsId',
+        select: '_id firstName lastName status bed diagnosis',
         populate: {
-          path: 'bedId',
+          path: 'bed',
           populate: {
-            path: 'roomId',
-            populate: { path: 'floorId' }
+            path: 'room',
+            populate: { path: 'floor' }
           }
         }
       })
@@ -226,7 +226,7 @@ export const getNurseDashboard = async (req: AuthRequest, res: Response) => {
           populate: {
             path: 'beds',
             populate: {
-              path: 'patientId',
+              path: 'patient',
               select: '_id firstName lastName status',
             }
           }
@@ -256,11 +256,11 @@ export const getNurseDashboard = async (req: AuthRequest, res: Response) => {
         status: 'CRITICAL',
       }),
       Alert.countDocuments({
-        patientId: { $in: patientIds },
+        patient: { $in: patientIds },
         status: { $in: ['ACTIVE', 'ACKNOWLEDGED'] },
       }),
       Alert.countDocuments({
-        patientId: { $in: patientIds },
+        patient: { $in: patientIds },
         status: { $in: ['ACTIVE', 'ACKNOWLEDGED'] },
         severity: 'CRITICAL',
       }),
@@ -268,19 +268,19 @@ export const getNurseDashboard = async (req: AuthRequest, res: Response) => {
 
     // Get nurse's recent alerts
     const recentAlerts = await Alert.find({
-      patientId: { $in: patientIds },
+      patient: { $in: patientIds },
       status: { $in: ['ACTIVE', 'ACKNOWLEDGED'] },
     })
       .limit(10)
       .sort({ timestamp: -1 })
       .populate({
-        path: 'patientId',
-        select: '_id firstName lastName bedId',
+        path: 'patient',
+        select: '_id firstName lastName bed',
         populate: {
-          path: 'bedId',
+          path: 'bed',
           populate: {
-            path: 'roomId',
-            populate: { path: 'floorId' }
+            path: 'room',
+            populate: { path: 'floor' }
           }
         }
       })
@@ -353,17 +353,17 @@ export const getRecentAlerts = async (req: AuthRequest, res: Response) => {
       .limit(Number(limit))
       .sort({ timestamp: -1 })
       .populate({
-        path: 'patientId',
-        select: '_id firstName lastName bedId',
+        path: 'patient',
+        select: '_id firstName lastName bed',
         populate: {
-          path: 'bedId',
+          path: 'bed',
           populate: {
-            path: 'roomId',
-            populate: { path: 'floorId' }
+            path: 'room',
+            populate: { path: 'floor' }
           }
         }
       })
-      .populate('vitalSignsId')
+      .populate('vitalSigns')
       .lean();
 
     res.json({
@@ -400,7 +400,7 @@ export const getPatientsOverview = async (req: AuthRequest, res: Response) => {
     ]);
 
     // Get patients with active alerts
-    const activeAlertIds = await Alert.distinct('patientId', {
+    const activeAlertIds = await Alert.distinct('patient', {
       status: { $in: ['ACTIVE', 'ACKNOWLEDGED'] }
     });
 
@@ -408,12 +408,12 @@ export const getPatientsOverview = async (req: AuthRequest, res: Response) => {
       _id: { $in: activeAlertIds },
       status: { $in: ['ADMITTED', 'IN_TREATMENT', 'STABLE', 'CRITICAL'] },
     })
-      .select('_id firstName lastName status bedId')
+      .select('_id firstName lastName status bed')
       .populate({
-        path: 'bedId',
+        path: 'bed',
         populate: {
-          path: 'roomId',
-          populate: { path: 'floorId' }
+          path: 'room',
+          populate: { path: 'floor' }
         }
       })
       .limit(20)
@@ -423,7 +423,7 @@ export const getPatientsOverview = async (req: AuthRequest, res: Response) => {
     const patientsWithAlerts = await Promise.all(
       patientsWithActiveAlerts.map(async (patient: any) => {
         const alerts = await Alert.find({
-          patientId: patient._id,
+          patient: patient._id,
           status: { $in: ['ACTIVE', 'ACKNOWLEDGED'] }
         })
           .sort({ timestamp: -1 })

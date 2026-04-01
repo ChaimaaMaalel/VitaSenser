@@ -39,6 +39,104 @@ const patientPopulateConfig = [
   },
 ];
 
+const parseStringArray = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value.map(String).filter(Boolean);
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return [];
+
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed.map(String).filter(Boolean);
+      }
+    } catch {
+      return [trimmed];
+    }
+
+    return [trimmed];
+  }
+
+  return [];
+};
+
+const normalizeId = (value: unknown): string | null => {
+  if (!value) return null;
+  try {
+    const id = String(value).trim();
+    return id.length ? id : null;
+  } catch {
+    return null;
+  }
+};
+
+const normalizeIdList = (values: unknown): string[] => {
+  if (!Array.isArray(values)) return [];
+  const ids = values
+    .map((value) => normalizeId(value))
+    .filter((value): value is string => Boolean(value));
+  return [...new Set(ids)];
+};
+
+const syncDoctorAssignment = async (
+  patientId: string,
+  previousDoctorId?: unknown,
+  nextDoctorId?: unknown
+) => {
+  const previousId = normalizeId(previousDoctorId);
+  const nextId = normalizeId(nextDoctorId);
+
+  if (previousId && previousId !== nextId) {
+    await Doctor.findByIdAndUpdate(previousId, { $pull: { patients: patientId } });
+  }
+
+  if (nextId) {
+    await Doctor.findByIdAndUpdate(nextId, { $addToSet: { patients: patientId } });
+  }
+};
+
+const syncNurseAssignments = async (
+  patientId: string,
+  previousNurseIds: unknown,
+  nextNurseIds: unknown
+) => {
+  const previousIds = normalizeIdList(previousNurseIds);
+  const nextIds = normalizeIdList(nextNurseIds);
+
+  const toRemove = previousIds.filter((id) => !nextIds.includes(id));
+  const toAdd = nextIds.filter((id) => !previousIds.includes(id));
+
+  await Promise.all([
+    ...toRemove.map((nurseId) =>
+      Nurse.findByIdAndUpdate(nurseId, { $pull: { patients: patientId } })
+    ),
+    ...toAdd.map((nurseId) =>
+      Nurse.findByIdAndUpdate(nurseId, { $addToSet: { patients: patientId } })
+    ),
+  ]);
+};
+
+const clearPatientAssignments = async (
+  patientId: string,
+  doctorId?: unknown,
+  nurseIds?: unknown
+) => {
+  const normalizedDoctorId = normalizeId(doctorId);
+  const normalizedNurseIds = normalizeIdList(nurseIds);
+
+  await Promise.all([
+    normalizedDoctorId
+      ? Doctor.findByIdAndUpdate(normalizedDoctorId, { $pull: { patients: patientId } })
+      : Promise.resolve(),
+    ...normalizedNurseIds.map((nurseId) =>
+      Nurse.findByIdAndUpdate(nurseId, { $pull: { patients: patientId } })
+    ),
+  ]);
+};
+
 const assignBedToPatient = async (patientId: string, bedId: string) => {
   const bed = await Bed.findOneAndUpdate(
     { _id: bedId, status: BedStatus.AVAILABLE },
@@ -220,6 +318,7 @@ export const createPatient = async (req: AuthRequest, res: Response) => {
     const {
       firstName,
       lastName,
+      profilePicture,
       dateOfBirth,
       gender,
       bloodType,
@@ -230,26 +329,37 @@ export const createPatient = async (req: AuthRequest, res: Response) => {
       bedId,
       status,
     } = req.body;
+    const uploadedProfilePicture = req.file
+      ? `/uploads/profile-pictures/${req.file.filename}`
+      : undefined;
+    const resolvedAllergies = parseStringArray(allergies);
+    const resolvedNurseIds = parseStringArray(assignedNurseIds);
 
     const nurseAssignments =
       req.user?.role === UserRole.NURSE
         ? [req.user.id]
-        : Array.isArray(assignedNurseIds)
-        ? assignedNurseIds
+        : resolvedNurseIds
+        ? resolvedNurseIds
         : [];
 
     const patient = await Patient.create({
       firstName,
       lastName,
+      profilePicture: uploadedProfilePicture || profilePicture || undefined,
       dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
       gender,
       bloodType,
       medicalHistory,
-      allergies: allergies || [],
+      allergies: resolvedAllergies,
       status,
       assignedDoctor: assignedDoctorId || undefined,
       assignedNurses: nurseAssignments,
     });
+
+    await Promise.all([
+      syncDoctorAssignment(patient._id.toString(), undefined, patient.assignedDoctor),
+      syncNurseAssignments(patient._id.toString(), [], patient.assignedNurses),
+    ]);
 
     if (bedId) {
       const assignedBed = await assignBedToPatient(patient._id.toString(), bedId);
@@ -290,8 +400,23 @@ export const updatePatient = async (req: AuthRequest, res: Response) => {
       assignedDoctorId,
       assignedNurseIds,
       bedId,
+      removeProfilePicture,
       ...updateData
     } = req.body;
+
+    if (req.file) {
+      updateData.profilePicture = `/uploads/profile-pictures/${req.file.filename}`;
+    } else if (removeProfilePicture === 'true' || removeProfilePicture === true) {
+      updateData.profilePicture = undefined;
+    } else if (Object.prototype.hasOwnProperty.call(updateData, 'profilePicture')) {
+      updateData.profilePicture = updateData.profilePicture || undefined;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(updateData, 'allergies')) {
+      updateData.allergies = parseStringArray(updateData.allergies);
+    }
+
+    const resolvedNurseIds = parseStringArray(assignedNurseIds);
 
     const patientDoc = await Patient.findById(id);
 
@@ -302,6 +427,9 @@ export const updatePatient = async (req: AuthRequest, res: Response) => {
       });
     }
 
+    const previousDoctorId = patientDoc.assignedDoctor;
+    const previousNurseIds = [...patientDoc.assignedNurses];
+
     Object.assign(patientDoc, updateData);
 
     if (typeof assignedDoctorId !== 'undefined') {
@@ -310,8 +438,8 @@ export const updatePatient = async (req: AuthRequest, res: Response) => {
 
     if (req.user?.role === UserRole.NURSE) {
       patientDoc.assignedNurses = [req.user.id] as any;
-    } else if (Array.isArray(assignedNurseIds)) {
-      patientDoc.assignedNurses = assignedNurseIds as any;
+    } else if (resolvedNurseIds.length > 0 || typeof assignedNurseIds !== 'undefined') {
+      patientDoc.assignedNurses = resolvedNurseIds as any;
     }
 
     const currentBedId = patientDoc.bed ? patientDoc.bed.toString() : null;
@@ -339,6 +467,19 @@ export const updatePatient = async (req: AuthRequest, res: Response) => {
 
     await patientDoc.save();
 
+    await Promise.all([
+      syncDoctorAssignment(
+        patientDoc._id.toString(),
+        previousDoctorId,
+        patientDoc.assignedDoctor
+      ),
+      syncNurseAssignments(
+        patientDoc._id.toString(),
+        previousNurseIds,
+        patientDoc.assignedNurses
+      ),
+    ]);
+
     const patient = await Patient.findById(patientDoc._id)
       .populate(patientPopulateConfig)
       .lean();
@@ -364,6 +505,17 @@ export const admitPatient = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { bedId, assignedDoctorId } = req.body;
+
+    const existingPatient = await Patient.findById(id)
+      .select('_id assignedDoctor')
+      .lean();
+
+    if (!existingPatient) {
+      return res.status(404).json({
+        success: false,
+        error: { message: 'Patient not found', statusCode: 404 },
+      });
+    }
 
     // Check if bed is available
     const bed = await Bed.findById(bedId).lean();
@@ -410,6 +562,12 @@ export const admitPatient = async (req: AuthRequest, res: Response) => {
         error: { message: 'Patient not found', statusCode: 404 },
       });
     }
+
+    await syncDoctorAssignment(
+      existingPatient._id.toString(),
+      existingPatient.assignedDoctor,
+      assignedDoctorId
+    );
 
     logger.info(`Patient admitted: ${id} to bed ${bedId}`);
 
@@ -545,7 +703,7 @@ export const getPatientAlerts = async (req: AuthRequest, res: Response) => {
 export const deletePatient = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const patient = await Patient.findById(id).select('bed');
+    const patient = await Patient.findById(id).select('bed assignedDoctor assignedNurses');
 
     if (!patient) {
       return res.status(404).json({
@@ -557,6 +715,12 @@ export const deletePatient = async (req: AuthRequest, res: Response) => {
     if (patient.bed) {
       await releaseBedFromPatient(patient._id.toString(), patient.bed.toString());
     }
+
+    await clearPatientAssignments(
+      patient._id.toString(),
+      patient.assignedDoctor,
+      patient.assignedNurses
+    );
 
     await Patient.findByIdAndDelete(id);
 
