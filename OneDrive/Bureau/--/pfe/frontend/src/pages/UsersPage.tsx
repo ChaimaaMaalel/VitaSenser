@@ -4,6 +4,7 @@ import StatsCard from '../components/dashboard/StatsCard';
 import api from '../lib/api';
 import { resolveMediaUrl } from '../lib/media';
 import toast from 'react-hot-toast';
+import { useLanguageStore } from '../store/languageStore';
 
 interface DirectoryUser {
   _id?: string;
@@ -69,6 +70,8 @@ const initialFormState: FormData = {
 };
 
 export default function UsersPage() {
+  const language = useLanguageStore((state) => state.language);
+  const tr = (en: string, fr: string) => (language === 'fr' ? fr : en);
   const [users, setUsers] = useState<DirectoryUser[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -100,7 +103,7 @@ export default function UsersPage() {
       setStats(statsRes.data.data);
     } catch (error) {
       console.error('Failed to load data');
-      toast.error('Failed to load data');
+      toast.error(tr('Failed to load data', 'Echec du chargement des donnees'));
     } finally {
       setLoading(false);
     }
@@ -171,7 +174,7 @@ export default function UsersPage() {
     e.preventDefault();
     
     if (!formData.email || !formData.firstName || !formData.lastName) {
-      toast.error('Please fill in required fields');
+      toast.error(tr('Please fill in required fields', 'Veuillez remplir les champs obligatoires'));
       return;
     }
 
@@ -198,21 +201,21 @@ export default function UsersPage() {
       
       if (editingUser) {
         await api.put(`/users/${editingUser._id || editingUser.id}`, payload);
-        toast.success('User updated successfully');
+        toast.success(tr('User updated successfully', 'Utilisateur mis a jour avec succes'));
       } else {
         if (!formData.password) {
-          toast.error('Password is required for new user');
+          toast.error(tr('Password is required for new user', 'Le mot de passe est requis pour un nouvel utilisateur'));
           return;
         }
         payload.append('password', formData.password);
         await api.post('/auth/register', payload);
-        toast.success('User created successfully');
+        toast.success(tr('User created successfully', 'Utilisateur cree avec succes'));
       }
       
       await fetchData();
       handleCloseModal();
     } catch (error: any) {
-      const message = error.response?.data?.error?.message || 'Failed to save user';
+      const message = error.response?.data?.error?.message || tr('Failed to save user', 'Echec de sauvegarde de utilisateur');
       toast.error(message);
     } finally {
       setSubmitting(false);
@@ -220,16 +223,16 @@ export default function UsersPage() {
   };
 
   const handleDeleteUser = async (userId: string) => {
-    if (!confirm('Are you sure you want to delete this user?')) {
+    if (!confirm(tr('Are you sure you want to delete this user?', 'Voulez-vous vraiment supprimer cet utilisateur ?'))) {
       return;
     }
 
     try {
       await api.delete(`/users/${userId}`);
-      toast.success('User deleted successfully');
+      toast.success(tr('User deleted successfully', 'Utilisateur supprime avec succes'));
       await fetchData();
     } catch (error: any) {
-      const message = error.response?.data?.error?.message || 'Failed to delete user';
+      const message = error.response?.data?.error?.message || tr('Failed to delete user', 'Echec de suppression de utilisateur');
       toast.error(message);
     }
   };
@@ -275,8 +278,8 @@ export default function UsersPage() {
         <div className="flex items-center gap-3">
           <UserCog className="w-8 h-8 text-purple-500" />
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
-            <p className="text-gray-600 mt-1">Manage doctors, nurses, and admins</p>
+            <h1 className="text-3xl font-bold text-gray-900">{tr('User Management', 'Gestion des utilisateurs')}</h1>
+            <p className="text-gray-600 mt-1">{tr('Manage doctors, nurses, and admins', 'Gerer les medecins, infirmiers et administrateurs')}</p>
           </div>
         </div>
         <button
@@ -284,37 +287,37 @@ export default function UsersPage() {
           className="flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg transition"
         >
           <Plus className="w-5 h-5" />
-          Add User
+          {tr('Add User', 'Ajouter utilisateur')}
         </button>
       </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatsCard
-          title="Total Staff"
+          title={tr('Total Staff', 'Personnel total')}
           value={totalUsers}
-          subtitle="Doctors & Nurses"
+          subtitle={tr('Doctors & Nurses', 'Medecins & infirmiers')}
           icon={Users}
           color="blue"
         />
         <StatsCard
-          title="Total Patients"
+          title={tr('Total Patients', 'Total patients')}
           value={stats?.patients.total || 0}
-          subtitle={`${stats?.patients.active || 0} active`}
+          subtitle={tr(`${stats?.patients.active || 0} active`, `${stats?.patients.active || 0} actifs`)}
           icon={Users}
           color="green"
         />
         <StatsCard
-          title="Doctors"
+          title={tr('Doctors', 'Medecins')}
           value={doctorCount}
-          subtitle="Medical staff"
+          subtitle={tr('Medical staff', 'Personnel medical')}
           icon={Stethoscope}
           color="blue"
         />
         <StatsCard
-          title="Nurses"
+          title={tr('Nurses', 'Infirmiers')}
           value={nurseCount}
-          subtitle="Care team"
+          subtitle={tr('Care team', 'Equipe de soins')}
           icon={UserCheck}
           color="purple"
         />
@@ -328,7 +331,7 @@ export default function UsersPage() {
             <Search className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
             <input
               type="text"
-              placeholder="Search by name, email, or phone..."
+              placeholder={tr('Search by name, email, or phone...', 'Rechercher par nom, email ou telephone...')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
@@ -339,9 +342,9 @@ export default function UsersPage() {
             onChange={(e) => setRoleFilter(e.target.value as 'ALL' | 'DOCTOR' | 'NURSE')}
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent whitespace-nowrap"
           >
-            <option value="ALL">All Roles</option>
-            <option value="DOCTOR">Doctors</option>
-            <option value="NURSE">Nurses</option>
+            <option value="ALL">{tr('All Roles', 'Tous les roles')}</option>
+            <option value="DOCTOR">{tr('Doctors', 'Medecins')}</option>
+            <option value="NURSE">{tr('Nurses', 'Infirmiers')}</option>
           </select>
         </div>
 
@@ -349,12 +352,12 @@ export default function UsersPage() {
           <table className="w-full">
             <thead className="border-b border-gray-200 bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Name</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Email</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Role</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Phone</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Department</th>
-                <th className="px-6 py-3 text-center text-sm font-semibold text-gray-900">Actions</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">{tr('Name', 'Nom')}</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">{tr('Email', 'Email')}</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">{tr('Role', 'Role')}</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">{tr('Phone', 'Telephone')}</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">{tr('Department', 'Departement')}</th>
+                <th className="px-6 py-3 text-center text-sm font-semibold text-gray-900">{tr('Actions', 'Actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -362,8 +365,8 @@ export default function UsersPage() {
                 <tr>
                   <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
                     {searchTerm || roleFilter !== 'ALL'
-                      ? 'No users match your search or filter'
-                      : 'No users found'}
+                      ? tr('No users match your search or filter', 'Aucun utilisateur ne correspond a votre recherche ou filtre')
+                      : tr('No users found', 'Aucun utilisateur trouve')}
                   </td>
                 </tr>
               ) : (
@@ -405,14 +408,14 @@ export default function UsersPage() {
                       <button
                         onClick={() => handleOpenModal(user)}
                         className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 mr-3"
-                        title="Edit"
+                        title={tr('Edit', 'Modifier')}
                       >
                         <Pencil className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDeleteUser(user._id || user.id || '')}
                         className="inline-flex items-center gap-1 text-red-600 hover:text-red-800"
-                        title="Delete"
+                        title={tr('Delete', 'Supprimer')}
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -432,6 +435,7 @@ export default function UsersPage() {
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
               <h2 className="text-xl font-bold text-gray-900">
                 {editingUser ? 'Edit User' : 'Add New User'}
+                {editingUser ? tr('Edit User', 'Modifier utilisateur') : tr('Add New User', 'Ajouter utilisateur')}
               </h2>
               <button
                 onClick={handleCloseModal}
@@ -444,7 +448,7 @@ export default function UsersPage() {
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-900 mb-1">
-                  Email *
+                  {tr('Email', 'Email')} *
                 </label>
                 <input
                   type="email"
@@ -461,7 +465,7 @@ export default function UsersPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-900 mb-1">
-                    First Name *
+                    {tr('First Name', 'Prenom')} *
                   </label>
                   <input
                     type="text"
@@ -474,7 +478,7 @@ export default function UsersPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-900 mb-1">
-                    Last Name *
+                    {tr('Last Name', 'Nom')} *
                   </label>
                   <input
                     type="text"
@@ -489,7 +493,7 @@ export default function UsersPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-900 mb-1">
-                  Phone
+                  {tr('Phone', 'Telephone')}
                 </label>
                 <input
                   type="tel"
@@ -502,7 +506,7 @@ export default function UsersPage() {
 
               <div className="space-y-2">
                 <label className="block text-sm font-medium text-gray-900 mb-1">
-                  Profile Picture
+                  {tr('Profile Picture', 'Photo de profil')}
                 </label>
                 <input
                   type="file"
@@ -524,14 +528,14 @@ export default function UsersPage() {
                       checked={removeProfilePicture}
                       onChange={(event) => setRemoveProfilePicture(event.target.checked)}
                     />
-                    Remove current picture
+                    {tr('Remove current picture', 'Supprimer la photo actuelle')}
                   </label>
                 )}
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-900 mb-1">
-                  Role *
+                  {tr('Role', 'Role')} *
                 </label>
                 <select
                   name="role"
@@ -540,8 +544,8 @@ export default function UsersPage() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   required
                 >
-                  <option value="DOCTOR">Doctor</option>
-                  <option value="NURSE">Nurse</option>
+                  <option value="DOCTOR">{tr('Doctor', 'Medecin')}</option>
+                  <option value="NURSE">{tr('Nurse', 'Infirmier')}</option>
                  
                 </select>
               </div>
@@ -550,20 +554,20 @@ export default function UsersPage() {
                 <>
                   <div>
                     <label className="block text-sm font-medium text-gray-900 mb-1">
-                      Specialization
+                      {tr('Specialization', 'Specialite')}
                     </label>
                     <input
                       type="text"
                       name="specialization"
                       value={formData.specialization || ''}
                       onChange={handleInputChange}
-                      placeholder="e.g., Cardiology"
+                      placeholder={tr('e.g., Cardiology', 'ex: Cardiologie')}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-900 mb-1">
-                      License Number
+                      {tr('License Number', 'Numero de licence')}
                     </label>
                     <input
                       type="text"
@@ -580,7 +584,7 @@ export default function UsersPage() {
                 <>
                   <div>
                     <label className="block text-sm font-medium text-gray-900 mb-1">
-                      Shift
+                      {tr('Shift', 'Service')}
                     </label>
                     <select
                       name="shift"
@@ -588,21 +592,21 @@ export default function UsersPage() {
                       onChange={handleInputChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     >
-                      <option value="DAY">Day</option>
-                      <option value="NIGHT">Night</option>
-                      <option value="EVENING">Evening</option>
+                      <option value="DAY">{tr('Day', 'Jour')}</option>
+                      <option value="NIGHT">{tr('Night', 'Nuit')}</option>
+                      <option value="EVENING">{tr('Evening', 'Soir')}</option>
                     </select>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-900 mb-1">
-                      Certification Level
+                      {tr('Certification Level', 'Niveau de certification')}
                     </label>
                     <input
                       type="text"
                       name="certificationLevel"
                       value={formData.certificationLevel || ''}
                       onChange={handleInputChange}
-                      placeholder="e.g., RN, LPN"
+                      placeholder={tr('e.g., RN, LPN', 'ex: RN, LPN')}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     />
                   </div>
@@ -611,14 +615,14 @@ export default function UsersPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-900 mb-1">
-                  Department
+                  {tr('Department', 'Departement')}
                 </label>
                 <input
                   type="text"
                   name="department"
                   value={formData.department || ''}
                   onChange={handleInputChange}
-                  placeholder="e.g., Emergency, ICU"
+                  placeholder={tr('e.g., Emergency, ICU', 'ex: Urgence, ICU')}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 />
               </div>
@@ -626,7 +630,7 @@ export default function UsersPage() {
               {!editingUser && (
                 <div>
                   <label className="block text-sm font-medium text-gray-900 mb-1">
-                    Password *
+                    {tr('Password', 'Mot de passe')} *
                   </label>
                   <input
                     type="password"
@@ -646,14 +650,14 @@ export default function UsersPage() {
                   onClick={handleCloseModal}
                   className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition font-medium"
                 >
-                  Cancel
+                  {tr('Cancel', 'Annuler')}
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
                   className="flex-1 px-4 py-2 bg-primary-600 hover:bg-primary-700 disabled:bg-primary-400 text-white rounded-lg transition font-medium"
                 >
-                  {submitting ? 'Saving...' : editingUser ? 'Update' : 'Create'}
+                  {submitting ? tr('Saving...', 'Enregistrement...') : editingUser ? tr('Update', 'Mettre a jour') : tr('Create', 'Creer')}
                 </button>
               </div>
             </form>

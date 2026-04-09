@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Chrome, Eye, EyeOff, Lightbulb, Lock, Mail } from 'lucide-react';
+import { Eye, EyeOff, Lock, Mail } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '../store/authStore';
 import api from '../lib/api';
 import loginVideo from '../../assets/pictures/login.webm';
-import vitaSenseLogo from '../../assets/pictures/VitaSense.png';
+import { useLanguageStore } from '../store/languageStore';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -14,6 +14,8 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const login = useAuthStore((state) => state.login);
+  const language = useLanguageStore((state) => state.language);
+  const tr = (en: string, fr: string) => (language === 'fr' ? fr : en);
 
   useEffect(() => {
     const link = document.createElement('link');
@@ -40,10 +42,12 @@ export default function LoginPage() {
       };
 
       login(mappedUser, tokens.accessToken, tokens.refreshToken);
-      toast.success(`Welcome back, ${user.firstName}!`);
+      toast.success(
+        language === 'fr' ? `Bon retour, ${user.firstName} !` : `Welcome back, ${user.firstName}!`
+      );
       navigate('/dashboard');
     } catch (error: any) {
-      toast.error(error.response?.data?.error?.message || 'Login failed');
+      toast.error(error.response?.data?.error?.message || tr('Login failed', 'Connexion echouee'));
     } finally {
       setLoading(false);
     }
@@ -68,14 +72,14 @@ export default function LoginPage() {
       <section className="relative z-10 w-full max-w-md rounded-[36px] bg-white/50 backdrop-blur-[28px] px-10 py-12 shadow-[0_40px_120px_rgba(76,29,149,0.3)] md:ml-32">
           
 
-          <h1 className="mt-6 text-5xl font-bold text-[#1c1c21]">Sign in</h1>
+          <h1 className="mt-6 text-5xl font-bold text-[#1c1c21]">{tr('Sign in', 'Connexion')}</h1>
 
           
 
           <form onSubmit={handleSubmit} className="mt-8 space-y-5">
             <div>
               <label className="text-sm font-semibold uppercase tracking-[0.2em] text-[#7b7b81]">
-                Email Address
+                {tr('Email Address', 'Adresse email')}
               </label>
               <div className="relative mt-2">
                 <Mail className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#cacfd8]" />
@@ -92,9 +96,9 @@ export default function LoginPage() {
 
             <div>
               <div className="flex items-center justify-between">
-                <label className="text-sm font-semibold uppercase tracking-[0.2em] text-[#7b7b81]">Password</label>
+                <label className="text-sm font-semibold uppercase tracking-[0.2em] text-[#7b7b81]">{tr('Password', 'Mot de passe')}</label>
                 <button type="button" className="text-sm font-semibold text-[#5c7cff] hover:underline">
-                  Forgot password?
+                  {tr('Forgot password?', 'Mot de passe oublie ?')}
                 </button>
               </div>
               <div className="relative mt-2">
@@ -122,7 +126,7 @@ export default function LoginPage() {
               disabled={loading}
               className="mt-4 w-full rounded-[18px] bg-[#1f1f24] py-3 text-base font-semibold text-white transition disabled:opacity-60"
             >
-              {loading ? 'Signing in...' : 'Sign in'}
+              {loading ? tr('Signing in...', 'Connexion...') : tr('Sign in', 'Connexion')}
             </button>
           </form>
         </section>

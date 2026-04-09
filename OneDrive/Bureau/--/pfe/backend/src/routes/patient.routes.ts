@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { authenticate, authorize } from '../middlewares/auth';
-import { profilePictureUpload } from '../middlewares/upload';
+import { patientDossierUpload, profilePictureUpload } from '../middlewares/upload';
 import * as patientController from '../controllers/patient.controller';
 import { UserRole } from '../models';
 
@@ -57,6 +57,38 @@ router.get('/:id/vitals', patientController.getPatientVitals);
 
 // Get patient alerts
 router.get('/:id/alerts', patientController.getPatientAlerts);
+
+// Patient timeline events
+router.get('/:id/events', patientController.getPatientEvents);
+router.post(
+  '/:id/events',
+  authorize(UserRole.ADMIN, UserRole.DOCTOR, UserRole.NURSE),
+  patientController.createPatientEvent
+);
+router.put(
+  '/:id/events/:eventId',
+  authorize(UserRole.ADMIN, UserRole.DOCTOR, UserRole.NURSE),
+  patientController.updatePatientEvent
+);
+router.delete(
+  '/:id/events/:eventId',
+  authorize(UserRole.ADMIN, UserRole.DOCTOR, UserRole.NURSE),
+  patientController.deletePatientEvent
+);
+
+// Patient dossier files
+router.get('/:id/dossier', patientController.getPatientDossierFiles);
+router.post(
+  '/:id/dossier/upload',
+  authorize(UserRole.ADMIN, UserRole.DOCTOR, UserRole.NURSE),
+  patientDossierUpload,
+  patientController.uploadPatientDossierFile
+);
+router.delete(
+  '/:id/dossier/:fileId',
+  authorize(UserRole.ADMIN, UserRole.DOCTOR, UserRole.NURSE),
+  patientController.deletePatientDossierFile
+);
 
 // Delete patient (Admin only)
 router.delete(

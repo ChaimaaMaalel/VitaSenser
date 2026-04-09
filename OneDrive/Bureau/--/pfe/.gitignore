@@ -1,3 +1,6 @@
+# ============================================
+# MEDIA FILES
+# ============================================
 # Global media ignores (images/pictures)
 **/*.png
 **/*.jpg
@@ -11,3 +14,120 @@
 # Picture folders
 frontend/assets/pictures/
 backend/uploads/profile-pictures/
+
+# ============================================
+# NODE.JS (Backend & Frontend)
+# ============================================
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+package-lock.json
+yarn.lock
+npm-debug.log*
+yarn-error.log*
+.yarn/cache/
+
+# ============================================
+# PYTHON
+# ============================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+.pytest_cache/
+.mypy_cache/
+.venv
+
+# ============================================
+# ENVIRONMENT VARIABLES
+# ============================================
+.env
+.env.local
+.env.*.local
+.env.production.local
+.env.development.local
+
+# ============================================
+# IDE & EDITOR
+# ============================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+*.code-workspace
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+
+# ============================================
+# LOGS & TEMPORARY FILES
+# ============================================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+tmp/
+temp/
+
+# ============================================
+# OS FILES
+# ============================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+desktop.ini
+
+# ============================================
+# DATABASE & MODELS
+# ============================================
+*.db
+*.sqlite
+*.sqlite3
+*.h5
+trained_models/
+
+# ============================================
+# IDE & RUNTIME
+# ============================================
+.next/
+.nuxt/
+dist/
+.cache/
+.vuepress/dist/
+.serverless/
+.fusebox/
+.dynamodb/
+.tern-port

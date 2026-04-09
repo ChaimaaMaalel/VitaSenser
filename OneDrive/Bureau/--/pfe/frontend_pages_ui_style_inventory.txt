@@ -1,0 +1,629 @@
+SMART HOSPITAL FRONTEND - PAGE/STYLES/ICONS INVENTORY
+Generated: 2026-04-09
+Scope: frontend/src pages + layout/components + global CSS/Tailwind/theme setup
+Purpose: React Native rebuild reference (screens, UI blocks, colors, iconography, style behavior)
+
+====================================================================
+1) GLOBAL FRONTEND STYLE SYSTEM
+====================================================================
+
+1.1 Framework + Styling
+- React + TypeScript + TailwindCSS.
+- UI styling is mostly utility-first Tailwind classes inside TSX files.
+- Reusable style classes are defined in index.css with @layer components.
+
+1.2 Tailwind Theme Tokens (tailwind.config.js)
+- Dark mode strategy: class-based (darkMode: 'class').
+- Primary palette:
+  - 50 #f0f9ff
+  - 100 #e0f2fe
+  - 200 #bae6fd
+  - 300 #7dd3fc
+  - 400 #38bdf8
+  - 500 #0ea5e9
+  - 600 #0284c7
+  - 700 #0369a1
+  - 800 #075985
+  - 900 #0c4a6e
+- Success palette: 50 #f0fdf4, 100 #dcfce7, 500 #22c55e, 600 #16a34a, 700 #15803d
+- Warning palette: 50 #fffbeb, 100 #fef3c7, 500 #f59e0b, 600 #d97706, 700 #b45309
+- Danger palette: 50 #fef2f2, 100 #fee2e2, 500 #ef4444, 600 #dc2626, 700 #b91c1c
+- Font family extension: Inter + system fallback.
+
+1.3 Global CSS Utilities/Components (src/index.css)
+- body default: bg-gray-50 text-gray-900 antialiased.
+- dark body: bg-slate-950 text-slate-100.
+
+Reusable classes:
+- .card: white background, rounded, subtle border/shadow, dark variant supported.
+- .btn: base button spacing/inline-flex/transition.
+- .btn-primary: primary-600 -> primary-700/800 on hover/active.
+- .btn-secondary: gray tones + dark mode variants.
+- .btn-success: success-600/700.
+- .btn-danger: danger-600/700.
+- .icon-button: square icon action button with border/hover/focus ring.
+- .input: full-width rounded inputs with focus ring primary-500.
+- .badge + badge variants: success/warning/danger/info.
+
+Custom animations:
+- emergency-modal-vibrate (horizontal micro vibration loop).
+- emergency-case-added (red pulse/highlight animation).
+- reduce-motion media query disables those animations.
+
+Dark mode class remapping:
+- Overrides common bg/text/border utility classes to slate-scale equivalents.
+
+1.4 Toaster Theme (main.tsx)
+- Default toast background #363636, text #fff.
+- Success icon theme primary #22c55e.
+- Error icon theme primary #ef4444.
+
+1.5 App shell metadata (index.html)
+- Theme color meta: #0066cc.
+- App favicon + og image: VitaSense logo.
+
+====================================================================
+2) APP ROUTING + SCREEN MAP
+====================================================================
+
+Public route:
+- /login -> LoginPage
+
+Protected routes under DashboardLayout:
+- /dashboard -> DashboardPage
+- /patients -> PatientsPage
+- /patients/:id -> PatientDetailPage
+- /alerts -> AlertsPage
+- /simulation -> SimulationPage
+- /hospital -> HospitalPage
+- /users -> UsersPage
+
+====================================================================
+3) SHARED LAYOUT COMPONENTS
+====================================================================
+
+3.1 DashboardLayout
+Purpose:
+- Main authenticated shell with Sidebar + Header + Outlet.
+- Emergency modal orchestration for urgent alerts.
+
+Visual structure:
+- Root: full height flex, bg-gray-50.
+- Sidebar fixed width (w-64), content area with Header + scrollable main.
+
+Emergency flow UI:
+- Uses EmergencyAlertModal.
+- Tracks urgent alerts and supports dismiss/snooze/acknowledge/open alerts page.
+
+3.2 Sidebar
+Main visual pieces:
+- Logo row with Activity icon and "Vita Senser" brand.
+- User profile block (avatar image or initials in primary color circle).
+- Navigation links with active state highlight.
+- Logout button in red accents.
+
+Icons used:
+- Activity (logo)
+- LayoutDashboard
+- Users
+- AlertTriangle
+- SlidersHorizontal
+- Building2
+- UserCog
+- LogOut
+
+Color/styling:
+- Container: white card-like sidebar with right border.
+- Active nav: bg-primary-50 text-primary-700.
+- Inactive nav: gray tones with hover bg-gray-50.
+- Logout: text-red-600 + hover bg-red-50.
+
+Role-based nav visibility:
+- Alerts only doctor/nurse.
+- Simulation/Hospital/Users only admin.
+
+3.3 Header
+Main visual pieces:
+- Search bar left (Search icon + input).
+- Notification bell with unread red badge.
+- Settings menu popup for language and theme.
+
+Icons used:
+- Search
+- Bell
+- Settings
+- Sun (light theme)
+- Moon (dark theme)
+
+Color/styling:
+- Header bar: white background, bottom border.
+- Dropdown panels: white, border, rounded, shadow.
+- Badge: red bubble for notification count.
+
+Theme/language controls:
+- Language buttons with flags (USA/France).
+- Theme buttons (light/dark) update class-based dark mode.
+
+3.4 EmergencyAlertModal
+Purpose:
+- Full-screen emergency popup for doctor/nurse.
+- Supports multi-case display with live highlighting.
+
+Visual/styling:
+- Backdrop: black/40 overlay.
+- Modal: white with red border emphasis + shake animation class.
+- Header: red-tinted strip + alert icon + pulsing bell icon.
+- Case cards: red-tinted containers, severity/type/status badges.
+- Action buttons: dismiss/open alerts/acknowledge.
+
+Icons used:
+- AlertTriangle
+- BellRing
+
+Animations:
+- emergency-modal-vibrate
+- emergency-case-added
+
+====================================================================
+4) PAGE-BY-PAGE DETAILS
+====================================================================
+
+4.1 LoginPage (Route: /login)
+Design style:
+- Full-screen cinematic login with video background.
+- Semi-transparent glassmorphism form card (white/50 + heavy backdrop blur).
+- Rounded large panel (rounded-[36px]).
+- Uses Nunito font loaded dynamically from Google Fonts.
+
+Main content blocks:
+- Background video layer + dark overlay (bg-black/20).
+- Login card with title and form fields.
+- Email field with icon.
+- Password field with icon + show/hide toggle.
+- "Forgot password?" text action.
+- Submit button with loading state.
+
+Icons used:
+- Mail
+- Lock
+- Eye
+- EyeOff
+- (Imported but not visibly used in JSX: Chrome, Lightbulb)
+
+Notable hardcoded colors:
+- Title text: #1c1c21
+- Label muted text: #7b7b81
+- Inputs border/focus: #5594a5
+- Placeholder: #a7a7ad
+- Input icon: #cacfd8
+- Button bg: #1f1f24
+- Link text: #5c7cff
+- Card shadow tint includes rgba(76,29,149,0.3)
+
+4.2 DashboardPage (Route: /dashboard)
+Purpose:
+- Lightweight entry page with title/subtitle and role-specific dashboard component.
+
+Main content blocks:
+- Page heading and subtitle.
+- Conditional rendering:
+  - AdminDashboard
+  - DoctorDashboard
+  - NurseDashboard
+
+Styling:
+- Space-y stack, text-3xl heading, gray subtitle.
+- No custom local colors beyond gray utility classes.
+
+4.3 PatientsPage (Route: /patients)
+Purpose:
+- Full patient management with CRUD, assignment, filters, table view, pagination, modal form.
+
+Main content blocks:
+- Header + Add Patient button.
+- Stats row (4 StatsCard widgets): total/critical/assigned beds/unassigned.
+- Search and filter panel:
+  - Basic search + status filter.
+  - Advanced filters (doctor, nurse, date range, location, reset).
+- Patients table:
+  - Avatar/image initials
+  - Status badge
+  - Location, doctor, nurse
+  - Actions (view/edit/delete)
+- Pagination controls.
+- Create/Edit patient modal with form sections:
+  - Identity fields
+  - Profile photo upload + remove checkbox
+  - Medical history/allergies
+  - Doctor/nurse assignment
+  - Floor -> room -> bed dependent selects
+
+Icons used:
+- Plus
+- Search
+- Users
+- Activity
+- Bed
+- UserMinus
+- Eye
+- Pencil
+- Trash2
+- X
+
+Primary style patterns:
+- Uses shared .card, .btn, .input, .icon-button, .badge classes heavily.
+- Table headers with gray background/borders.
+- Modal overlays: fixed inset, bg-black/50.
+- Status chips map:
+  - CRITICAL -> badge-danger
+  - STABLE -> badge-success
+  - MODERATE -> badge-warning
+  - RECOVERING -> badge-info
+  - DISCHARGED -> gray badge
+
+Role behavior affecting UI:
+- Admin and nurse can manage patients; doctor read-oriented scope.
+- Nurse selection options filtered contextually.
+
+4.4 PatientDetailPage (Route: /patients/:id)
+Purpose:
+- Most complex clinical detail view: live vitals, charts, AI analysis, body visualization, timeline/events, dossier file management, PDF export.
+
+Main content blocks:
+- Patient header card with MRN/age/gender/status.
+- Metric masonry cards:
+  - Temperature
+  - Heart Rate trend mini-chart
+  - Glucose trend mini-chart
+  - Oxygen trend mini-chart
+  - ECG waveform
+  - Sleep progress/timeline bars
+- Human body visualization section:
+  - Static image /assets/pictures/humain3D.png
+  - Range chips (1h/6h/24h/7d)
+  - Live ON/OFF toggle
+  - Metric selector cards (temp/hr/glucose/sleep)
+  - Main trend chart + stats cards (current/avg/min/max)
+- AI Clinical Analysis card:
+  - anomaly/status/cardiac/respiratory model outputs
+  - alert list
+  - recommendations list
+- Sensor Connectivity card.
+- Comparison cards:
+  - Today vs Yesterday
+  - Current shift vs previous shift
+- Patient Dossier card:
+  - Add file button
+  - Export PDF button
+  - File gallery cards (image preview or folder link)
+- Timeline + Events card:
+  - Type chips
+  - Date mode filters
+  - Expandable event cards
+  - Add/edit/delete event buttons
+- Modals:
+  - Add dossier file modal
+  - Add/Edit event modal
+  - Event selection modal (for edit/delete target)
+
+Charts/libraries:
+- Recharts LineChart + ResponsiveContainer + Tooltip + Axis/Grid.
+
+Icons used:
+- Heart
+- Thermometer
+- Droplets
+- Moon
+- Wind
+- Activity
+- AlertCircle
+- Plus
+- Pencil
+- Trash2
+- FileUp
+- Download
+- FolderOpen
+
+Color system in page-specific widgets:
+- Status badge backgrounds:
+  - red/yellow/emerald/slate/green variants by dynamic status.
+- Body metric configs:
+  - Temperature color #b45309 (amber)
+  - Heart rate color #be123c (rose)
+  - Glucose color #0369a1 (sky)
+  - Sleep color #4338ca (indigo)
+- Chart lines reflect each metric color.
+- Many white cards with gray borders (clinical dashboard style).
+
+Additional UI features:
+- Real-time socket subscription to patient vitals.
+- Timeline event type classes:
+  - alert rose tones
+  - medication sky tones
+  - intervention emerald tones
+  - procedure violet tones
+  - note amber tones
+  - ai_insight indigo tones
+- Severity dots:
+  - critical rose-600
+  - warning amber-500
+  - normal emerald-500
+
+4.5 AlertsPage (Route: /alerts)
+Purpose:
+- Alert operations center with filter/search/pagination + acknowledge/resolve actions.
+
+Main content blocks:
+- Header with alert icon + last refresh line.
+- Stats row (total, critical, pending, impacted patients).
+- Search & filters card:
+  - text search
+  - severity/status/type/time filters
+- Alert list cards with message/description/badges/time.
+- Pagination footer with prev/next.
+
+Icons used:
+- AlertTriangle
+- Activity
+- Bell
+- Users
+
+Color/styling:
+- Uses card + input + badge utilities.
+- Severity/status badges map to warning/danger/info/success classes.
+- Header icon orange-500.
+
+4.6 HospitalPage (Route: /hospital)
+Purpose:
+- Hospital infrastructure management: floors, rooms, beds with CRUD and filter/pagination.
+
+Main content blocks:
+- Header with building icon.
+- Stats row (total/occupied/available beds + occupancy rate).
+- Floors section:
+  - search + type filter
+  - table (floor number/name/rooms/actions)
+  - pagination
+- Rooms section:
+  - search + type filter
+  - table (room/type/capacity/floor/actions)
+  - pagination
+- Beds section:
+  - search + status filter
+  - table (bed/room/status/patient/actions)
+  - pagination
+- Modals:
+  - Floor modal
+  - Room modal
+  - Bed modal
+
+Icons used:
+- Building2
+- Bed
+- Activity
+- Plus
+- Trash2
+- Pencil
+- X
+- Search
+
+Color/styling patterns:
+- Buttons: primary blue for add/save.
+- Status chips:
+  - AVAILABLE green
+  - OCCUPIED red
+  - MAINTENANCE yellow
+  - RESERVED blue
+- Table rows hover gray-50.
+- Modal overlay black with opacity.
+
+4.7 UsersPage (Route: /users)
+Purpose:
+- Staff management (doctors/nurses), user CRUD, profile photo upload, role-specific fields.
+
+Main content blocks:
+- Header with user-cog icon + Add User button.
+- Stats row (total staff, total patients, doctors, nurses).
+- Users table card:
+  - search input
+  - role filter
+  - data table with avatar initials/image and action buttons
+- Modal form:
+  - identity and contact fields
+  - profile picture upload + remove option
+  - role select (doctor/nurse)
+  - doctor fields: specialization/license
+  - nurse fields: shift/certification
+  - department
+  - password (create only)
+
+Icons used:
+- UserCog
+- Stethoscope
+- Users
+- UserCheck
+- Plus
+- Trash2
+- Pencil
+- X
+- Search
+
+Color/styling:
+- Header icon purple-500.
+- Role badges:
+  - doctor blue tones
+  - nurse green tones
+- Primary action buttons use primary palette.
+- Modal follows white + gray-border + rounded shadow system.
+
+4.8 SimulationPage (Route: /simulation)
+Purpose:
+- Real-time simulation control panel for bed vitals, timeline scenarios, replay, diagnostics, and manual signal override.
+
+Main content blocks:
+- Header with simulation icon + socket status badge + refresh.
+- Left panel (beds list):
+  - search/filter controls
+  - bed cards with running status + mini trend sparkline
+- Right control panel for selected bed:
+  - start/stop simulation buttons
+  - profile select
+  - interval + quick presets (1s/2s/3s)
+  - realism select (CLEAN/REALISTIC/NOISY)
+- Scenario Timeline block:
+  - AI one-click scenario button
+  - start timeline button
+  - editable scenario step rows
+- Session Recording & Replay block
+- Live diagnostics block
+- Current vitals cards (HR/temp/SpO2/glucose)
+- Variation summary cards + 4 larger line charts
+- Manual signal override sliders (HR/temp/SpO2/glucose)
+
+Icons used:
+- SlidersHorizontal
+- Activity
+- Play
+- Square
+- Thermometer
+- Droplets
+- HeartPulse
+
+Dynamic severity color system:
+- normal: emerald card/border/line
+- warning: amber card/border/line
+- critical: rose card/border/line
+
+Chart and visual behavior:
+- Multiple realtime line charts with severity-based line colors.
+- Status/connection uses badges.
+
+====================================================================
+5) ROLE-SPECIFIC DASHBOARD COMPONENTS
+====================================================================
+
+5.1 AdminDashboard
+Main blocks:
+- Hospital overview gradient card (blue -> cyan).
+- 3 stats cards.
+- Two-column panel:
+  - patients with alerts list
+  - recent alerts list
+- Bed occupancy progress panel.
+
+Icons:
+- Users, AlertTriangle, Activity, Building
+
+Color patterns:
+- Severity/status color maps for chips and alert cards.
+- Occupancy progress uses blue gradient.
+
+5.2 DoctorDashboard
+Main blocks:
+- Doctor identity gradient card (blue -> indigo) with profile avatar.
+- 3 stats cards.
+- My patients list + recent alerts list.
+
+Icons:
+- Users, AlertTriangle, Activity, Stethoscope
+
+Color patterns:
+- Similar severity/status maps as admin dashboard.
+
+5.3 NurseDashboard
+Main blocks:
+- Nurse identity gradient card (green -> emerald) + shift/certification chips.
+- 3 stats cards.
+- My patients list + recent alerts list.
+- Floor occupancy progress panel.
+
+Icons:
+- Users, AlertTriangle, Activity, Heart
+
+Color patterns:
+- Shift chip colors:
+  - DAY yellow
+  - NIGHT indigo
+  - EVENING purple
+- Occupancy progress uses green gradient.
+
+5.4 StatsCard (Shared)
+Purpose:
+- Reusable metrics card used across many pages.
+
+Supported color themes:
+- blue, green, orange, red, purple.
+
+Style structure:
+- .card container
+- Large numeric value
+- Colored icon badge (bg + icon text classes).
+
+5.5 RecentAlerts + PatientsOverview (Auxiliary dashboard widgets)
+- RecentAlerts: compact alert feed card with severity color coding and clock icon.
+- PatientsOverview: status distribution bars with color mapping:
+  - CRITICAL red
+  - IN_TREATMENT orange
+  - STABLE green
+  - ADMITTED blue
+  - default gray
+
+====================================================================
+6) ICON LIBRARY SUMMARY
+====================================================================
+
+Primary icon package:
+- lucide-react
+
+Frequently used icon groups by function:
+- Navigation/system: Activity, LayoutDashboard, Settings, Search, LogOut
+- Alerts/emergency: AlertTriangle, Bell, BellRing
+- Patient/clinical: Users, Heart, Thermometer, Droplets, Wind, Moon, HeartPulse
+- Management actions: Plus, Pencil, Trash2, Eye, X
+- Facility/admin: Building2, Bed, UserCog, Stethoscope, UserCheck
+- Simulation controls: Play, Square, SlidersHorizontal
+- Files/documents: FileUp, Download, FolderOpen
+
+====================================================================
+7) THEMING + LOCALIZATION NOTES
+====================================================================
+
+Theme:
+- Stored in zustand persist store (light/dark).
+- Applies by toggling 'dark' class on document root.
+- Header settings menu controls light/dark.
+
+Language:
+- EN/FR state from language store.
+- Most pages have inline tr(en, fr) helper.
+- Shared nav/header labels from i18n translation map.
+
+====================================================================
+8) CSS-RELATED ASSETS / MEDIA USED IN UI
+====================================================================
+
+Images/video/media referenced in frontend pages/components:
+- /assets/pictures/login.webm (Login background)
+- /assets/pictures/VitaSense.png (logo/icon)
+- /assets/pictures/humain3D.png (Patient body visualization)
+- /flags/usa.svg, /flags/france.svg (language picker)
+- /sound.mp3 (Emergency alert audio)
+
+====================================================================
+9) IMPLEMENTATION NOTES FOR REACT NATIVE MIGRATION
+====================================================================
+
+Web-specific patterns to replace:
+- Tailwind classes -> RN StyleSheet/theme tokens.
+- HTML tables -> FlatList/SectionList card/table equivalents.
+- CSS animations -> Animated API/Reanimated.
+- Recharts -> RN chart library equivalent.
+- File input/download/PDF DOM APIs -> RN document picker + file system + PDF lib.
+- Socket logic can be retained conceptually with socket.io-client RN support.
+
+Most styling relies on:
+- Gray background surfaces + white cards + semantic accent colors.
+- Badge semantics for status/severity.
+- Icon-based affordances and high-density dashboard cards.
+
+END OF INVENTORY

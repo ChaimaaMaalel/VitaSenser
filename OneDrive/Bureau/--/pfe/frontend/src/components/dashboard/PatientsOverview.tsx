@@ -2,15 +2,11 @@ import { useEffect, useState } from 'react';
 import { Users } from 'lucide-react';
 import api from '../../lib/api';
 import clsx from 'clsx';
-
-interface Patient {
-  id: string;
-  firstName: string;
-  lastName: string;
-  status: string;
-}
+import { useLanguageStore } from '../../store/languageStore';
 
 export default function PatientsOverview() {
+  const language = useLanguageStore((state) => state.language);
+  const tr = (en: string, fr: string) => (language === 'fr' ? fr : en);
   const [statusData, setStatusData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -49,13 +45,13 @@ export default function PatientsOverview() {
   return (
     <div className="card">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-bold text-gray-900">Patients Overview</h2>
+        <h2 className="text-xl font-bold text-gray-900">{tr('Patients Overview', 'Apercu des patients')}</h2>
         <Users className="w-5 h-5 text-blue-500" />
       </div>
 
       <div className="space-y-4">
         {loading ? (
-          <p className="text-gray-500 text-center py-4">Loading...</p>
+          <p className="text-gray-500 text-center py-4">{tr('Loading...', 'Chargement...')}</p>
         ) : (
           <>
             {/* Status Bars */}
@@ -83,7 +79,7 @@ export default function PatientsOverview() {
             {/* Total */}
             <div className="pt-4 border-t border-gray-200">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-gray-900">Total Patients</span>
+                <span className="text-sm font-semibold text-gray-900">{tr('Total Patients', 'Total patients')}</span>
                 <span className="text-2xl font-bold text-gray-900">{totalPatients}</span>
               </div>
             </div>

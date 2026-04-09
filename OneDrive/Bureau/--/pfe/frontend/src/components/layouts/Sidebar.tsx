@@ -5,29 +5,53 @@ import {
   Users,
   AlertTriangle,
   Building2,
+  SlidersHorizontal,
   UserCog,
   LogOut,
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { resolveMediaUrl } from '../../lib/media';
 import clsx from 'clsx';
+import { useLanguageStore } from '../../store/languageStore';
+import { t, type TranslationKey } from '../../lib/i18n';
+
+type UserRole = 'ADMIN' | 'DOCTOR' | 'NURSE';
+type NavigationItem = {
+  labelKey: TranslationKey;
+  href: string;
+  icon: any;
+  roles?: UserRole[];
+};
 
 export default function Sidebar() {
   const { user, logout } = useAuthStore();
+  const { language } = useLanguageStore();
 
   const initials = `${user?.firstName?.[0] || ''}${user?.lastName?.[0] || ''}`.toUpperCase();
   const profileImageUrl = resolveMediaUrl(user?.profilePicture);
 
-  const navigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Patients', href: '/patients', icon: Users },
-    { name: 'Alerts', href: '/alerts', icon: AlertTriangle },
-    { name: 'Hospital', href: '/hospital', icon: Building2, roles: ['ADMIN'] },
-    { name: 'Users', href: '/users', icon: UserCog, roles: ['ADMIN'] },
+  const navigation: NavigationItem[] = [
+    { labelKey: 'nav.dashboard' as const, href: '/dashboard', icon: LayoutDashboard },
+    { labelKey: 'nav.patients' as const, href: '/patients', icon: Users },
+    { labelKey: 'nav.alerts' as const, href: '/alerts', icon: AlertTriangle, roles: ['DOCTOR', 'NURSE'] },
+    {
+      labelKey: 'nav.simulation' as const,
+      href: '/simulation',
+      icon: SlidersHorizontal,
+      roles: ['ADMIN'],
+    },
+    { labelKey: 'nav.hospital' as const, href: '/hospital', icon: Building2, roles: ['ADMIN'] },
+    { labelKey: 'nav.users' as const, href: '/users', icon: UserCog, roles: ['ADMIN'] },
   ];
+  const roleKeyByRole: Record<UserRole, TranslationKey> = {
+    ADMIN: 'role.admin',
+    DOCTOR: 'role.doctor',
+    NURSE: 'role.nurse',
+  };
+  const userRoleLabel = user?.role ? t(language, roleKeyByRole[user.role]) : '';
 
   const filteredNavigation = navigation.filter(
-    (item) => !item.roles || item.roles.includes(user?.role || '')
+    (item) => !item.roles || (user?.role ? item.roles.includes(user.role) : false)
   );
 
   return (
@@ -56,7 +80,7 @@ export default function Sidebar() {
             <p className="text-sm font-medium text-gray-900 truncate">
               {user?.firstName} {user?.lastName}
             </p>
-            <p className="text-xs text-gray-500 capitalize">{user?.role.toLowerCase()}</p>
+            <p className="text-xs text-gray-500 capitalize">{userRoleLabel}</p>
           </div>
         </div>
       </div>
@@ -65,7 +89,7 @@ export default function Sidebar() {
       <nav className="flex-1 p-4 space-y-1">
         {filteredNavigation.map((item) => (
           <NavLink
-            key={item.name}
+            key={item.labelKey}
             to={item.href}
             className={({ isActive }) =>
               clsx(
@@ -77,7 +101,7 @@ export default function Sidebar() {
             }
           >
             <item.icon className="w-5 h-5" />
-            {item.name}
+            {t(language, item.labelKey)}
           </NavLink>
         ))}
       </nav>
@@ -89,7 +113,7 @@ export default function Sidebar() {
           className="flex items-center gap-3 px-4 py-3 rounded-lg font-medium text-sm text-red-600 hover:bg-red-50 w-full transition-colors"
         >
           <LogOut className="w-5 h-5" />
-          Sign Out
+          {t(language, 'auth.signOut')}
         </button>
       </div>
     </div>

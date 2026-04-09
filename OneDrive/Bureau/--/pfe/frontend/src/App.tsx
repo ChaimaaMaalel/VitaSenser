@@ -10,6 +10,7 @@ import PatientDetailPage from './pages/PatientDetailPage';
 import AlertsPage from './pages/AlertsPage';
 import HospitalPage from './pages/HospitalPage';
 import UsersPage from './pages/UsersPage';
+import SimulationPage from './pages/SimulationPage';
 
 function App() {
   const { isAuthenticated } = useAuthStore();
@@ -32,6 +33,7 @@ function App() {
         <Route path="patients" element={<PatientsPage />} />
         <Route path="patients/:id" element={<PatientDetailPage />} />
         <Route path="alerts" element={<AlertsPage />} />
+        <Route path="simulation" element={<SimulationPage />} />
         <Route path="hospital" element={<HospitalPage />} />
         <Route path="users" element={<UsersPage />} />
       </Route>

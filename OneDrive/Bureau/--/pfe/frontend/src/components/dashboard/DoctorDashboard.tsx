@@ -7,6 +7,7 @@ import { formatDistanceToNow } from 'date-fns';
 import clsx from 'clsx';
 import { useAuthStore } from '../../store/authStore';
 import { resolveMediaUrl } from '../../lib/media';
+import { useLanguageStore } from '../../store/languageStore';
 
 interface Patient {
   _id: string;
@@ -65,6 +66,8 @@ interface DoctorDashboardData {
 }
 
 export default function DoctorDashboard() {
+  const language = useLanguageStore((state) => state.language);
+  const tr = (en: string, fr: string) => (language === 'fr' ? fr : en);
   const user = useAuthStore((state) => state.user);
   const [dashboardData, setDashboardData] = useState<DoctorDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -81,7 +84,7 @@ export default function DoctorDashboard() {
       const response = await api.get('/dashboard');
       setDashboardData(response.data.data);
     } catch (error: any) {
-      toast.error('Failed to load dashboard');
+      toast.error(tr('Failed to load dashboard', 'Echec du chargement du tableau de bord'));
     } finally {
       setLoading(false);
     }
@@ -146,7 +149,7 @@ export default function DoctorDashboard() {
             <p className="text-gray-600 mt-1">{dashboardData?.doctor.specialization}</p>
             {dashboardData?.doctor.department && (
               <p className="text-sm text-gray-500 mt-1">
-                Department: {dashboardData.doctor.department}
+                {tr('Department', 'Departement')}: {dashboardData.doctor.department}
               </p>
             )}
           </div>
@@ -159,23 +162,23 @@ export default function DoctorDashboard() {
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <StatsCard
-          title="Assigned Patients"
+          title={tr('Assigned Patients', 'Patients assignes')}
           value={dashboardData?.patients.total || 0}
-          subtitle="Total assigned"
+          subtitle={tr('Total assigned', 'Total assigne')}
           icon={Users}
           color="blue"
         />
         <StatsCard
-          title="Critical Patients"
+          title={tr('Critical Patients', 'Patients critiques')}
           value={dashboardData?.patients.critical || 0}
-          subtitle="Require attention"
+          subtitle={tr('Require attention', 'Necessitent attention')}
           icon={Activity}
           color="red"
         />
         <StatsCard
-          title="Active Alerts"
+          title={tr('Active Alerts', 'Alertes actives')}
           value={dashboardData?.alerts.active || 0}
-          subtitle={`${dashboardData?.alerts.critical || 0} critical`}
+          subtitle={tr(`${dashboardData?.alerts.critical || 0} critical`, `${dashboardData?.alerts.critical || 0} critiques`)}
           icon={AlertTriangle}
           color="orange"
         />
@@ -186,7 +189,7 @@ export default function DoctorDashboard() {
         {/* Assigned Patients */}
         <div className="card">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-gray-900">My Patients</h2>
+            <h2 className="text-xl font-bold text-gray-900">{tr('My Patients', 'Mes patients')}</h2>
             <Users className="w-5 h-5 text-blue-500" />
           </div>
 
@@ -202,15 +205,15 @@ export default function DoctorDashboard() {
                       <p className="text-sm text-gray-600 mt-1">
                         {patient.bedId?.roomId?.floorId?.floorNumber && (
                           <>
-                            Floor {patient.bedId.roomId.floorId.floorNumber} •{' '}
+                            {tr('Floor', 'Etage')} {patient.bedId.roomId.floorId.floorNumber} •{' '}
                           </>
                         )}
                         {patient.bedId?.roomId?.roomNumber && (
                           <>
-                            Room {patient.bedId.roomId.roomNumber} •{' '}
+                            {tr('Room', 'Salle')} {patient.bedId.roomId.roomNumber} •{' '}
                           </>
                         )}
-                        {patient.bedId?.bedNumber && <>Bed {patient.bedId.bedNumber}</>}
+                        {patient.bedId?.bedNumber && <>{tr('Bed', 'Lit')} {patient.bedId.bedNumber}</>}
                       </p>
                     </div>
                     <span className={clsx('badge text-xs capitalize', getStatusColor(patient.status))}>
@@ -220,7 +223,7 @@ export default function DoctorDashboard() {
                 </div>
               ))
             ) : (
-              <p className="text-gray-500 text-center py-4">No assigned patients</p>
+              <p className="text-gray-500 text-center py-4">{tr('No assigned patients', 'Aucun patient assigne')}</p>
             )}
           </div>
         </div>
@@ -228,7 +231,7 @@ export default function DoctorDashboard() {
         {/* Recent Alerts */}
         <div className="card">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-gray-900">Recent Alerts</h2>
+            <h2 className="text-xl font-bold text-gray-900">{tr('Recent Alerts', 'Alertes recentes')}</h2>
             <AlertTriangle className="w-5 h-5 text-orange-500" />
           </div>
 

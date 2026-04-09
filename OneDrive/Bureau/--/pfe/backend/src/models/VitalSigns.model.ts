@@ -7,17 +7,26 @@ export enum RiskLevel {
   CRITICAL = 'CRITICAL'
 }
 
+export enum VitalSource {
+  SIMULATOR = 'SIMULATOR',
+  DEVICE = 'DEVICE',
+  MANUAL = 'MANUAL'
+}
+
 export interface IVitalSigns extends Document {
-  patient: Types.ObjectId;
+  patient?: Types.ObjectId;
+  bed: Types.ObjectId;
   timestamp: Date;
   heartRate?: number;
   spO2?: number;
   temperature?: number;
+  glucose?: number;
   ecgData?: number[];
   systolicBP?: number;
   diastolicBP?: number;
   respiratoryRate?: number;
-  recordedBy: Types.ObjectId;
+  source: VitalSource;
+  recordedBy?: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
   isAbnormal(): boolean;
@@ -29,6 +38,11 @@ const vitalSignsSchema = new Schema<IVitalSigns>(
     patient: {
       type: Schema.Types.ObjectId,
       ref: 'Patient',
+      index: true,
+    },
+    bed: {
+      type: Schema.Types.ObjectId,
+      ref: 'Bed',
       required: true,
       index: true,
     },
@@ -52,6 +66,11 @@ const vitalSignsSchema = new Schema<IVitalSigns>(
       min: 30,
       max: 45,
     },
+    glucose: {
+      type: Number,
+      min: 0,
+      max: 1000,
+    },
     ecgData: [Number],
     systolicBP: {
       type: Number,
@@ -68,10 +87,15 @@ const vitalSignsSchema = new Schema<IVitalSigns>(
       min: 0,
       max: 100,
     },
+    source: {
+      type: String,
+      enum: Object.values(VitalSource),
+      default: VitalSource.DEVICE,
+      index: true,
+    },
     recordedBy: {
       type: Schema.Types.ObjectId,
       ref: 'User',
-      required: true,
     },
   },
   {
@@ -81,6 +105,7 @@ const vitalSignsSchema = new Schema<IVitalSigns>(
 
 // Compound index for efficient querying
 vitalSignsSchema.index({ patient: 1, timestamp: -1 });
+vitalSignsSchema.index({ bed: 1, timestamp: -1 });
 
 // Methods
 vitalSignsSchema.methods.isAbnormal = function (): boolean {

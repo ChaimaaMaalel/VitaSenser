@@ -3,6 +3,7 @@ import { AlertTriangle, Clock } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import api from '../../lib/api';
 import clsx from 'clsx';
+import { useLanguageStore } from '../../store/languageStore';
 
 interface Alert {
   id: string;
@@ -26,6 +27,8 @@ interface Alert {
 }
 
 export default function RecentAlerts() {
+  const language = useLanguageStore((state) => state.language);
+  const tr = (en: string, fr: string) => (language === 'fr' ? fr : en);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -60,15 +63,15 @@ export default function RecentAlerts() {
   return (
     <div className="card">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-bold text-gray-900">Recent Alerts</h2>
+        <h2 className="text-xl font-bold text-gray-900">{tr('Recent Alerts', 'Alertes recentes')}</h2>
         <AlertTriangle className="w-5 h-5 text-orange-500" />
       </div>
 
       <div className="space-y-3">
         {loading ? (
-          <p className="text-gray-500 text-center py-4">Loading alerts...</p>
+          <p className="text-gray-500 text-center py-4">{tr('Loading alerts...', 'Chargement des alertes...')}</p>
         ) : alerts.length === 0 ? (
-          <p className="text-gray-500 text-center py-4">No active alerts</p>
+          <p className="text-gray-500 text-center py-4">{tr('No active alerts', 'Aucune alerte active')}</p>
         ) : (
           alerts.map((alert) => (
             <div
@@ -86,8 +89,9 @@ export default function RecentAlerts() {
                   <p className="text-sm mt-1">{alert.message}</p>
                   {alert.patient.bed && (
                     <p className="text-xs mt-1 opacity-75">
-                      Floor {alert.patient.bed.room.floor.floorNumber} • Room{' '}
+                      {tr('Floor', 'Etage')} {alert.patient.bed.room.floor.floorNumber} • {tr('Room', 'Salle')}{' '}
                       {alert.patient.bed.room.roomNumber} • Bed{' '}
+                      {tr('Bed', 'Lit')}{' '}
                       {alert.patient.bed.bedNumber}
                     </p>
                   )}

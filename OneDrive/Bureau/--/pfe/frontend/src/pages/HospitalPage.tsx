@@ -1,8 +1,9 @@
-import { useEffect, useState, ChangeEvent, FormEvent } from 'react';
+import { useEffect, useState, FormEvent } from 'react';
 import { Building2, Bed, Activity, Plus, Trash2, Pencil, X, Search } from 'lucide-react';
 import StatsCard from '../components/dashboard/StatsCard';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
+import { useLanguageStore } from '../store/languageStore';
 
 interface BedStats {
   total: number;
@@ -43,6 +44,8 @@ type ModalType = 'floor' | 'room' | 'bed' | null;
 const ITEMS_PER_PAGE = 5;
 
 export default function HospitalPage() {
+  const language = useLanguageStore((state) => state.language);
+  const tr = (en: string, fr: string) => (language === 'fr' ? fr : en);
   const [bedStats, setBedStats] = useState<BedStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [floors, setFloors] = useState<Floor[]>([]);
@@ -91,7 +94,7 @@ export default function HospitalPage() {
       setBeds(bedsRes.data.data.beds || []);
     } catch (error) {
       console.error('Failed to load data');
-      toast.error('Failed to load hospital data');
+      toast.error(tr('Failed to load hospital data', 'Echec du chargement des donnees de hopital'));
     } finally {
       setLoading(false);
     }
@@ -112,7 +115,7 @@ export default function HospitalPage() {
   const handleSubmitFloor = async (e: FormEvent) => {
     e.preventDefault();
     if (!floorForm.floorNumber || !floorForm.name) {
-      toast.error('Floor number and name are required');
+      toast.error(tr('Floor number and name are required', 'Numero et nom de l etage sont requis'));
       return;
     }
 
@@ -120,28 +123,28 @@ export default function HospitalPage() {
       setSubmitting(true);
       if (editingItem) {
         await api.put(`/hospital/floors/${editingItem._id}`, { name: floorForm.name, description: floorForm.description });
-        toast.success('Floor updated');
+        toast.success(tr('Floor updated', 'Etage mis a jour'));
       } else {
         await api.post('/hospital/floors', floorForm);
-        toast.success('Floor created');
+        toast.success(tr('Floor created', 'Etage cree'));
       }
       await fetchAllData();
       setModalType(null);
     } catch (error: any) {
-      toast.error(error.response?.data?.error?.message || 'Failed to save floor');
+      toast.error(error.response?.data?.error?.message || tr('Failed to save floor', 'Echec de sauvegarde de etage'));
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleDeleteFloor = async (id: string) => {
-    if (!confirm('Delete this floor?')) return;
+    if (!confirm(tr('Delete this floor?', 'Supprimer cet etage ?'))) return;
     try {
       await api.delete(`/hospital/floors/${id}`);
-      toast.success('Floor deleted');
+      toast.success(tr('Floor deleted', 'Etage supprime'));
       await fetchAllData();
     } catch (error: any) {
-      toast.error(error.response?.data?.error?.message || 'Failed to delete floor');
+      toast.error(error.response?.data?.error?.message || tr('Failed to delete floor', 'Echec de suppression de etage'));
     }
   };
 
@@ -160,7 +163,7 @@ export default function HospitalPage() {
   const handleSubmitRoom = async (e: FormEvent) => {
     e.preventDefault();
     if (!roomForm.roomNumber || !roomForm.type || !roomForm.capacity || !roomForm.floor) {
-      toast.error('All fields are required');
+      toast.error(tr('All fields are required', 'Tous les champs sont requis'));
       return;
     }
 
@@ -168,28 +171,28 @@ export default function HospitalPage() {
       setSubmitting(true);
       if (editingItem) {
         await api.put(`/hospital/rooms/${editingItem._id}`, { ...roomForm, capacity: Number(roomForm.capacity) });
-        toast.success('Room updated');
+        toast.success(tr('Room updated', 'Salle mise a jour'));
       } else {
         await api.post('/hospital/rooms', { ...roomForm, capacity: Number(roomForm.capacity) });
-        toast.success('Room created');
+        toast.success(tr('Room created', 'Salle creee'));
       }
       await fetchAllData();
       setModalType(null);
     } catch (error: any) {
-      toast.error(error.response?.data?.error?.message || 'Failed to save room');
+      toast.error(error.response?.data?.error?.message || tr('Failed to save room', 'Echec de sauvegarde de salle'));
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleDeleteRoom = async (id: string) => {
-    if (!confirm('Delete this room?')) return;
+    if (!confirm(tr('Delete this room?', 'Supprimer cette salle ?'))) return;
     try {
       await api.delete(`/hospital/rooms/${id}`);
-      toast.success('Room deleted');
+      toast.success(tr('Room deleted', 'Salle supprimee'));
       await fetchAllData();
     } catch (error: any) {
-      toast.error(error.response?.data?.error?.message || 'Failed to delete room');
+      toast.error(error.response?.data?.error?.message || tr('Failed to delete room', 'Echec de suppression de salle'));
     }
   };
 
@@ -208,7 +211,7 @@ export default function HospitalPage() {
   const handleSubmitBed = async (e: FormEvent) => {
     e.preventDefault();
     if (!bedForm.bedNumber || !bedForm.room) {
-      toast.error('Bed number and room are required');
+      toast.error(tr('Bed number and room are required', 'Numero du lit et salle sont requis'));
       return;
     }
 
@@ -216,28 +219,28 @@ export default function HospitalPage() {
       setSubmitting(true);
       if (editingItem) {
         await api.put(`/hospital/beds/${editingItem._id}`, { status: bedForm.status });
-        toast.success('Bed updated');
+        toast.success(tr('Bed updated', 'Lit mis a jour'));
       } else {
         await api.post('/hospital/beds', bedForm);
-        toast.success('Bed created');
+        toast.success(tr('Bed created', 'Lit cree'));
       }
       await fetchAllData();
       setModalType(null);
     } catch (error: any) {
-      toast.error(error.response?.data?.error?.message || 'Failed to save bed');
+      toast.error(error.response?.data?.error?.message || tr('Failed to save bed', 'Echec de sauvegarde du lit'));
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleDeleteBed = async (id: string) => {
-    if (!confirm('Delete this bed?')) return;
+    if (!confirm(tr('Delete this bed?', 'Supprimer ce lit ?'))) return;
     try {
       await api.delete(`/hospital/beds/${id}`);
-      toast.success('Bed deleted');
+      toast.success(tr('Bed deleted', 'Lit supprime'));
       await fetchAllData();
     } catch (error: any) {
-      toast.error(error.response?.data?.error?.message || 'Failed to delete bed');
+      toast.error(error.response?.data?.error?.message || tr('Failed to delete bed', 'Echec de suppression du lit'));
     }
   };
 
@@ -302,7 +305,8 @@ export default function HospitalPage() {
           <Building2 className="w-8 h-8 text-blue-500" />
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Hospital Management</h1>
-            <p className="text-gray-600 mt-1">Manage floors, rooms, and beds</p>
+            <h1 className="text-3xl font-bold text-gray-900">{tr('Hospital Management', 'Gestion de hopital')}</h1>
+            <p className="text-gray-600 mt-1">{tr('Manage floors, rooms, and beds', 'Gerer les etages, salles et lits')}</p>
           </div>
         </div>
       </div>
@@ -310,30 +314,30 @@ export default function HospitalPage() {
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatsCard
-          title="Total Beds"
+          title={tr('Total Beds', 'Total lits')}
           value={totalBeds}
-          subtitle="Facility capacity"
+          subtitle={tr('Facility capacity', 'Capacite de etablissement')}
           icon={Bed}
           color="blue"
         />
         <StatsCard
-          title="Occupied Beds"
+          title={tr('Occupied Beds', 'Lits occupes')}
           value={occupiedBeds}
-          subtitle="Currently in use"
+          subtitle={tr('Currently in use', 'Actuellement utilises')}
           icon={Activity}
           color="red"
         />
         <StatsCard
-          title="Available Beds"
+          title={tr('Available Beds', 'Lits disponibles')}
           value={availableBeds}
-          subtitle="Ready for admission"
+          subtitle={tr('Ready for admission', 'Prets pour admission')}
           icon={Plus}
           color="green"
         />
         <StatsCard
-          title="Occupancy Rate"
+          title={tr('Occupancy Rate', 'Taux occupation')}
           value={`${occupancyRate}%`}
-          subtitle={`${occupiedBeds} of ${totalBeds}`}
+          subtitle={tr(`${occupiedBeds} of ${totalBeds}`, `${occupiedBeds} sur ${totalBeds}`)}
           icon={Building2}
           color="orange"
         />
@@ -342,12 +346,12 @@ export default function HospitalPage() {
       {/* Floors Section */}
       <div className="card">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold">Floors ({filteredFloors.length})</h3>
+          <h3 className="text-lg font-semibold">{tr('Floors', 'Etages')} ({filteredFloors.length})</h3>
           <button
             onClick={() => handleOpenFloorModal()}
             className="flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-3 py-2 rounded-lg text-sm"
           >
-            <Plus className="w-4 h-4" /> Add Floor
+            <Plus className="w-4 h-4" /> {tr('Add Floor', 'Ajouter etage')}
           </button>
         </div>
 
@@ -358,7 +362,7 @@ export default function HospitalPage() {
               <Search className="absolute left-3 top-2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search floors..."
+                placeholder={tr('Search floors...', 'Rechercher des etages...')}
                 value={floorSearch}
                 onChange={(e) => {
                   setFloorSearch(e.target.value);
@@ -375,9 +379,9 @@ export default function HospitalPage() {
               }}
               className="px-3 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-primary-500"
             >
-              <option value="ALL">All Floors</option>
-              <option value="EMPTY">Empty</option>
-              <option value="FULL">With Rooms</option>
+              <option value="ALL">{tr('All Floors', 'Tous les etages')}</option>
+              <option value="EMPTY">{tr('Empty', 'Vides')}</option>
+              <option value="FULL">{tr('With Rooms', 'Avec salles')}</option>
             </select>
           </div>
         </div>
@@ -386,15 +390,15 @@ export default function HospitalPage() {
           <table className="w-full text-sm">
             <thead className="border-b border-gray-200 bg-gray-50">
               <tr>
-                <th className="px-4 py-2 text-left">Floor #</th>
-                <th className="px-4 py-2 text-left">Name</th>
-                <th className="px-4 py-2 text-left">Rooms</th>
-                <th className="px-4 py-2 text-center">Actions</th>
+                <th className="px-4 py-2 text-left">{tr('Floor #', 'Etage #')}</th>
+                <th className="px-4 py-2 text-left">{tr('Name', 'Nom')}</th>
+                <th className="px-4 py-2 text-left">{tr('Rooms', 'Salles')}</th>
+                <th className="px-4 py-2 text-center">{tr('Actions', 'Actions')}</th>
               </tr>
             </thead>
             <tbody>
               {paginatedFloors.length === 0 ? (
-                <tr><td colSpan={4} className="px-4 py-4 text-center text-gray-500">No floors found</td></tr>
+                <tr><td colSpan={4} className="px-4 py-4 text-center text-gray-500">{tr('No floors found', 'Aucun etage trouve')}</td></tr>
               ) : (
                 paginatedFloors.map(floor => (
                   <tr key={floor._id} className="border-b border-gray-200 hover:bg-gray-50">
@@ -415,21 +419,21 @@ export default function HospitalPage() {
         {/* Pagination */}
         {floorPages > 1 && (
           <div className="mt-4 flex items-center justify-between">
-            <p className="text-sm text-gray-600">Page {floorCurrentPage} of {floorPages}</p>
+            <p className="text-sm text-gray-600">{tr('Page', 'Page')} {floorCurrentPage} {tr('of', 'sur')} {floorPages}</p>
             <div className="flex gap-2">
               <button
                 onClick={() => setFloorCurrentPage(p => Math.max(1, p - 1))}
                 disabled={floorCurrentPage === 1}
                 className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
               >
-                Previous
+                {tr('Previous', 'Precedent')}
               </button>
               <button
                 onClick={() => setFloorCurrentPage(p => Math.min(floorPages, p + 1))}
                 disabled={floorCurrentPage === floorPages}
                 className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
               >
-                Next
+                {tr('Next', 'Suivant')}
               </button>
             </div>
           </div>
@@ -439,12 +443,12 @@ export default function HospitalPage() {
       {/* Rooms Section */}
       <div className="card">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold">Rooms ({filteredRooms.length})</h3>
+          <h3 className="text-lg font-semibold">{tr('Rooms', 'Salles')} ({filteredRooms.length})</h3>
           <button
             onClick={() => handleOpenRoomModal()}
             className="flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-3 py-2 rounded-lg text-sm"
           >
-            <Plus className="w-4 h-4" /> Add Room
+            <Plus className="w-4 h-4" /> {tr('Add Room', 'Ajouter salle')}
           </button>
         </div>
 
@@ -455,7 +459,7 @@ export default function HospitalPage() {
               <Search className="absolute left-3 top-2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search rooms..."
+                placeholder={tr('Search rooms...', 'Rechercher des salles...')}
                 value={roomSearch}
                 onChange={(e) => {
                   setRoomSearch(e.target.value);
@@ -472,7 +476,7 @@ export default function HospitalPage() {
               }}
               className="px-3 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-primary-500 whitespace-nowrap"
             >
-              <option value="ALL">All Types</option>
+              <option value="ALL">{tr('All Types', 'Tous les types')}</option>
               <option value="ICU">ICU</option>
               <option value="GENERAL">General</option>
               <option value="EMERGENCY">Emergency</option>
@@ -486,17 +490,17 @@ export default function HospitalPage() {
           <table className="w-full text-sm">
             <thead className="border-b border-gray-200 bg-gray-50">
               <tr>
-                <th className="px-4 py-2 text-left">Room #</th>
-                <th className="px-4 py-2 text-left">Name</th>
-                <th className="px-4 py-2 text-left">Type</th>
-                <th className="px-4 py-2 text-left">Capacity</th>
-                <th className="px-4 py-2 text-left">Floor</th>
-                <th className="px-4 py-2 text-center">Actions</th>
+                <th className="px-4 py-2 text-left">{tr('Room #', 'Salle #')}</th>
+                <th className="px-4 py-2 text-left">{tr('Name', 'Nom')}</th>
+                <th className="px-4 py-2 text-left">{tr('Type', 'Type')}</th>
+                <th className="px-4 py-2 text-left">{tr('Capacity', 'Capacite')}</th>
+                <th className="px-4 py-2 text-left">{tr('Floor', 'Etage')}</th>
+                <th className="px-4 py-2 text-center">{tr('Actions', 'Actions')}</th>
               </tr>
             </thead>
             <tbody>
               {paginatedRooms.length === 0 ? (
-                <tr><td colSpan={6} className="px-4 py-4 text-center text-gray-500">No rooms found</td></tr>
+                <tr><td colSpan={6} className="px-4 py-4 text-center text-gray-500">{tr('No rooms found', 'Aucune salle trouvee')}</td></tr>
               ) : (
                 paginatedRooms.map(room => (
                   <tr key={room._id} className="border-b border-gray-200 hover:bg-gray-50">
@@ -504,7 +508,7 @@ export default function HospitalPage() {
                     <td className="px-4 py-3">{room.name || '-'}</td>
                     <td className="px-4 py-3"><span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">{room.type}</span></td>
                     <td className="px-4 py-3">{room.capacity}</td>
-                    <td className="px-4 py-3">Floor {room.floor?.floorNumber}</td>
+                    <td className="px-4 py-3">{tr('Floor', 'Etage')} {room.floor?.floorNumber}</td>
                     <td className="px-4 py-3 text-center">
                       <button onClick={() => handleOpenRoomModal(room)} className="text-blue-600 hover:text-blue-800 mr-2"><Pencil className="w-4 h-4" /></button>
                       <button onClick={() => handleDeleteRoom(room._id)} className="text-red-600 hover:text-red-800"><Trash2 className="w-4 h-4" /></button>
@@ -519,21 +523,21 @@ export default function HospitalPage() {
         {/* Pagination */}
         {roomPages > 1 && (
           <div className="mt-4 flex items-center justify-between">
-            <p className="text-sm text-gray-600">Page {roomCurrentPage} of {roomPages}</p>
+            <p className="text-sm text-gray-600">{tr('Page', 'Page')} {roomCurrentPage} {tr('of', 'sur')} {roomPages}</p>
             <div className="flex gap-2">
               <button
                 onClick={() => setRoomCurrentPage(p => Math.max(1, p - 1))}
                 disabled={roomCurrentPage === 1}
                 className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
               >
-                Previous
+                {tr('Previous', 'Precedent')}
               </button>
               <button
                 onClick={() => setRoomCurrentPage(p => Math.min(roomPages, p + 1))}
                 disabled={roomCurrentPage === roomPages}
                 className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
               >
-                Next
+                {tr('Next', 'Suivant')}
               </button>
             </div>
           </div>
@@ -543,12 +547,12 @@ export default function HospitalPage() {
       {/* Beds Section */}
       <div className="card">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold">Beds ({filteredBeds.length})</h3>
+          <h3 className="text-lg font-semibold">{tr('Beds', 'Lits')} ({filteredBeds.length})</h3>
           <button
             onClick={() => handleOpenBedModal()}
             className="flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-3 py-2 rounded-lg text-sm"
           >
-            <Plus className="w-4 h-4" /> Add Bed
+            <Plus className="w-4 h-4" /> {tr('Add Bed', 'Ajouter lit')}
           </button>
         </div>
 
@@ -559,7 +563,7 @@ export default function HospitalPage() {
               <Search className="absolute left-3 top-2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search beds..."
+                placeholder={tr('Search beds...', 'Rechercher des lits...')}
                 value={bedSearch}
                 onChange={(e) => {
                   setBedSearch(e.target.value);
@@ -576,11 +580,11 @@ export default function HospitalPage() {
               }}
               className="px-3 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-primary-500 whitespace-nowrap"
             >
-              <option value="ALL">All Status</option>
-              <option value="AVAILABLE">Available</option>
-              <option value="OCCUPIED">Occupied</option>
-              <option value="MAINTENANCE">Maintenance</option>
-              <option value="RESERVED">Reserved</option>
+              <option value="ALL">{tr('All Status', 'Tous les statuts')}</option>
+              <option value="AVAILABLE">{tr('Available', 'Disponible')}</option>
+              <option value="OCCUPIED">{tr('Occupied', 'Occupe')}</option>
+              <option value="MAINTENANCE">{tr('Maintenance', 'Maintenance')}</option>
+              <option value="RESERVED">{tr('Reserved', 'Reserve')}</option>
             </select>
           </div>
         </div>
@@ -589,16 +593,16 @@ export default function HospitalPage() {
           <table className="w-full text-sm">
             <thead className="border-b border-gray-200 bg-gray-50">
               <tr>
-                <th className="px-4 py-2 text-left">Bed #</th>
-                <th className="px-4 py-2 text-left">Room</th>
-                <th className="px-4 py-2 text-left">Status</th>
-                <th className="px-4 py-2 text-left">Patient</th>
-                <th className="px-4 py-2 text-center">Actions</th>
+                <th className="px-4 py-2 text-left">{tr('Bed #', 'Lit #')}</th>
+                <th className="px-4 py-2 text-left">{tr('Room', 'Salle')}</th>
+                <th className="px-4 py-2 text-left">{tr('Status', 'Statut')}</th>
+                <th className="px-4 py-2 text-left">{tr('Patient', 'Patient')}</th>
+                <th className="px-4 py-2 text-center">{tr('Actions', 'Actions')}</th>
               </tr>
             </thead>
             <tbody>
               {paginatedBeds.length === 0 ? (
-                <tr><td colSpan={5} className="px-4 py-4 text-center text-gray-500">No beds found</td></tr>
+                <tr><td colSpan={5} className="px-4 py-4 text-center text-gray-500">{tr('No beds found', 'Aucun lit trouve')}</td></tr>
               ) : (
                 paginatedBeds.map(bed => (
                   <tr key={bed._id} className="border-b border-gray-200 hover:bg-gray-50">
@@ -629,21 +633,21 @@ export default function HospitalPage() {
         {/* Pagination */}
         {bedPages > 1 && (
           <div className="mt-4 flex items-center justify-between">
-            <p className="text-sm text-gray-600">Page {bedCurrentPage} of {bedPages}</p>
+            <p className="text-sm text-gray-600">{tr('Page', 'Page')} {bedCurrentPage} {tr('of', 'sur')} {bedPages}</p>
             <div className="flex gap-2">
               <button
                 onClick={() => setBedCurrentPage(p => Math.max(1, p - 1))}
                 disabled={bedCurrentPage === 1}
                 className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
               >
-                Previous
+                {tr('Previous', 'Precedent')}
               </button>
               <button
                 onClick={() => setBedCurrentPage(p => Math.min(bedPages, p + 1))}
                 disabled={bedCurrentPage === bedPages}
                 className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
               >
-                Next
+                {tr('Next', 'Suivant')}
               </button>
             </div>
           </div>

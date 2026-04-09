@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "name": "Smart Hospital",
+    "slug": "smart-hospital-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "android": {
+      "package": "com.smarthospital.mobile"
+    },
+    "ios": {
+      "bundleIdentifier": "com.smarthospital.mobile"
+    }
+  }
+}

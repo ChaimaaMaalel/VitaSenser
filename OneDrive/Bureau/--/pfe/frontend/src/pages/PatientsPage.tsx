@@ -6,6 +6,7 @@ import api from '../lib/api';
 import { resolveMediaUrl } from '../lib/media';
 import { useAuthStore } from '../store/authStore';
 import StatsCard from '../components/dashboard/StatsCard';
+import { useLanguageStore } from '../store/languageStore';
 
 interface FloorRef {
   _id?: string;
@@ -92,6 +93,8 @@ const initialFormState: PatientFormData = {
 };
 
 export default function PatientsPage() {
+  const language = useLanguageStore((state) => state.language);
+  const tr = (en: string, fr: string) => (language === 'fr' ? fr : en);
   const navigate = useNavigate();
   const [patients, setPatients] = useState<PatientRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -141,23 +144,23 @@ export default function PatientsPage() {
       room?: RoomRef;
     }
   ) => {
-    if (!bed) return 'Unassigned';
-    const parts = [`Bed ${bed.bedNumber ?? ''}`.trim()];
-    if (bed.room?.roomNumber) parts.push(`Room ${bed.room.roomNumber}`);
+    if (!bed) return tr('Unassigned', 'Non assigne');
+    const parts = [`${tr('Bed', 'Lit')} ${bed.bedNumber ?? ''}`.trim()];
+    if (bed.room?.roomNumber) parts.push(`${tr('Room', 'Salle')} ${bed.room.roomNumber}`);
     if (bed.room?.floor?.floorNumber !== undefined) {
-      parts.push(`Floor ${bed.room.floor.floorNumber}`);
+      parts.push(`${tr('Floor', 'Etage')} ${bed.room.floor.floorNumber}`);
     }
     return parts.filter(Boolean).join(' • ');
   };
 
   const formatFloorLabel = (floor?: FloorRef) =>
-    floor?.floorNumber !== undefined ? `Floor ${floor.floorNumber}` : 'Floor';
+    floor?.floorNumber !== undefined ? `${tr('Floor', 'Etage')} ${floor.floorNumber}` : tr('Floor', 'Etage');
 
   const formatRoomLabel = (room?: RoomRef) =>
-    room?.roomNumber ? `Room ${room.roomNumber}` : 'Room';
+    room?.roomNumber ? `${tr('Room', 'Salle')} ${room.roomNumber}` : tr('Room', 'Salle');
 
   const formatNurseNames = (nurses?: PatientRecord['assignedNurses']) => {
-    if (!nurses || nurses.length === 0) return 'Not assigned';
+    if (!nurses || nurses.length === 0) return tr('Not assigned', 'Non assigne');
     const names = nurses
       .map((nurse) => {
         if (!nurse) return '';
@@ -166,7 +169,7 @@ export default function PatientsPage() {
         return [firstName, lastName].filter(Boolean).join(' ');
       })
       .filter(Boolean);
-    return names.length > 0 ? names.join(', ') : 'Not assigned';
+    return names.length > 0 ? names.join(', ') : tr('Not assigned', 'Non assigne');
   };
 
   const getPatientInitials = (firstName?: string, lastName?: string) =>
@@ -202,7 +205,7 @@ export default function PatientsPage() {
       setPatients(response.data.data.patients);
     } catch (error) {
       console.error('Failed to fetch patients');
-      toast.error('Failed to load patients');
+      toast.error(tr('Failed to load patients', 'Echec du chargement des patients'));
     } finally {
       setLoading(false);
     }
@@ -219,7 +222,7 @@ export default function PatientsPage() {
       setBedOptions(beds);
     } catch (error) {
       console.error('Failed to fetch patient metadata');
-      toast.error('Failed to load patient helpers');
+      toast.error(tr('Failed to load patient helpers', 'Echec du chargement des options patient'));
     } finally {
       setMetadataLoading(false);
     }
@@ -392,17 +395,17 @@ export default function PatientsPage() {
     try {
       if (modalMode === 'create') {
         await api.post('/patients', payload);
-        toast.success('Patient created successfully');
+        toast.success(tr('Patient created successfully', 'Patient cree avec succes'));
       } else {
         const patientId = getPatientId(selectedPatient);
         await api.put(`/patients/${patientId}`, payload);
-        toast.success('Patient updated successfully');
+        toast.success(tr('Patient updated successfully', 'Patient mis a jour avec succes'));
       }
       closeModal();
       await refreshPatientsData();
     } catch (error) {
       console.error('Failed to save patient', error);
-      toast.error('Failed to save patient');
+      toast.error(tr('Failed to save patient', 'Echec de sauvegarde du patient'));
       setSubmitting(false);
     }
   };
@@ -412,17 +415,17 @@ export default function PatientsPage() {
     const patientId = getPatientId(patient);
     if (!patientId) return;
 
-    const confirmed = window.confirm('Are you sure you want to delete this patient?');
+    const confirmed = window.confirm(tr('Are you sure you want to delete this patient?', 'Voulez-vous vraiment supprimer ce patient ?'));
     if (!confirmed) return;
 
     setDeleteLoadingId(patientId);
     try {
       await api.delete(`/patients/${patientId}`);
-      toast.success('Patient deleted successfully');
+      toast.success(tr('Patient deleted successfully', 'Patient supprime avec succes'));
       await refreshPatientsData();
     } catch (error) {
       console.error('Failed to delete patient', error);
-      toast.error('Failed to delete patient');
+      toast.error(tr('Failed to delete patient', 'Echec de suppression du patient'));
     } finally {
       setDeleteLoadingId(null);
     }
@@ -605,13 +608,13 @@ export default function PatientsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Patients</h1>
-          <p className="text-gray-600 mt-1">Manage and monitor all patients</p>
+          <h1 className="text-3xl font-bold text-gray-900">{tr('Patients', 'Patients')}</h1>
+          <p className="text-gray-600 mt-1">{tr('Manage and monitor all patients', 'Gerer et surveiller tous les patients')}</p>
         </div>
         {canManagePatients && (
           <button type="button" className="btn btn-primary" onClick={openCreateModal}>
             <Plus className="w-5 h-5" />
-            Add Patient
+            {tr('Add Patient', 'Ajouter patient')}
           </button>
         )}
       </div>
@@ -619,30 +622,30 @@ export default function PatientsPage() {
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatsCard
-          title="Total Patients"
+          title={tr('Total Patients', 'Total patients')}
           value={totalPatients}
-          subtitle={`${criticalPatients} critical`}
+          subtitle={tr(`${criticalPatients} critical`, `${criticalPatients} critiques`)}
           icon={Users}
           color="blue"
         />
         <StatsCard
-          title="Critical Cases"
+          title={tr('Critical Cases', 'Cas critiques')}
           value={criticalPatients}
-          subtitle="Require attention"
+          subtitle={tr('Require attention', 'Necessitent attention')}
           icon={Activity}
           color="red"
         />
         <StatsCard
-          title="Assigned Beds"
+          title={tr('Assigned Beds', 'Lits assignes')}
           value={assignedBeds}
-          subtitle={`of ${totalPatients} patients`}
+          subtitle={tr(`of ${totalPatients} patients`, `sur ${totalPatients} patients`)}
           icon={Bed}
           color="green"
         />
         <StatsCard
-          title="Unassigned Patients"
+          title={tr('Unassigned Patients', 'Patients non assignes')}
           value={unassignedPatients}
-          subtitle="Awaiting bed assignment"
+          subtitle={tr('Awaiting bed assignment', 'En attente de lit')}
           icon={UserMinus}
           color="orange"
         />
@@ -655,7 +658,7 @@ export default function PatientsPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
               type="text"
-              placeholder="Search patients by name or ID..."
+              placeholder={tr('Search patients by name or ID...', 'Rechercher patient par nom ou ID...')}
               className="input pl-10"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -666,12 +669,12 @@ export default function PatientsPage() {
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
           >
-            <option value="">All Status</option>
-            <option value="CRITICAL">Critical</option>
-            <option value="STABLE">Stable</option>
-            <option value="MODERATE">Moderate</option>
-            <option value="RECOVERING">Recovering</option>
-            <option value="DISCHARGED">Discharged</option>
+            <option value="">{tr('All Status', 'Tous les statuts')}</option>
+            <option value="CRITICAL">{tr('Critical', 'Critique')}</option>
+            <option value="STABLE">{tr('Stable', 'Stable')}</option>
+            <option value="MODERATE">{tr('Moderate', 'Modere')}</option>
+            <option value="RECOVERING">{tr('Recovering', 'Recuperation')}</option>
+            <option value="DISCHARGED">{tr('Discharged', 'Sorti')}</option>
           </select>
           {(isAdmin || isNurse || isDoctor) && (
             <button
@@ -679,7 +682,7 @@ export default function PatientsPage() {
               className="btn btn-secondary whitespace-nowrap"
               onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
             >
-              {showAdvancedFilters ? 'Hide' : 'Show'} Advanced
+              {(showAdvancedFilters ? tr('Hide', 'Masquer') : tr('Show', 'Afficher'))} {tr('Advanced', 'avance')}
             </button>
           )}
         </div>
@@ -688,13 +691,13 @@ export default function PatientsPage() {
           <div className="border-t pt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {isAdmin && (
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Doctor</label>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">{tr('Doctor', 'Medecin')}</label>
                 <select
                   className="input w-full"
                   value={filterDoctorId}
                   onChange={(e) => setFilterDoctorId(e.target.value)}
                 >
-                  <option value="">All Doctors</option>
+                  <option value="">{tr('All Doctors', 'Tous les medecins')}</option>
                   {doctorOptions.map((doctor) => (
                     <option key={doctor._id} value={doctor._id}>
                       Dr. {doctor.firstName} {doctor.lastName}
@@ -705,13 +708,13 @@ export default function PatientsPage() {
             )}
             {isNurse && (
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Doctor</label>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">{tr('Doctor', 'Medecin')}</label>
                 <select
                   className="input w-full"
                   value={filterDoctorId}
                   onChange={(e) => setFilterDoctorId(e.target.value)}
                 >
-                  <option value="">All Doctors</option>
+                  <option value="">{tr('All Doctors', 'Tous les medecins')}</option>
                   {doctorOptions.map((doctor) => (
                     <option key={doctor._id} value={doctor._id}>
                       Dr. {doctor.firstName} {doctor.lastName}
@@ -722,13 +725,13 @@ export default function PatientsPage() {
             )}
             {(isAdmin || isDoctor) && (
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Nurse</label>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">{tr('Nurse', 'Infirmier')}</label>
                 <select
                   className="input w-full"
                   value={filterNurseId}
                   onChange={(e) => setFilterNurseId(e.target.value)}
                 >
-                  <option value="">All Nurses</option>
+                  <option value="">{tr('All Nurses', 'Tous les infirmiers')}</option>
                   {availableNurseOptions.map((nurse) => (
                     <option key={nurse._id} value={nurse._id}>
                       {nurse.firstName} {nurse.lastName}
@@ -738,7 +741,7 @@ export default function PatientsPage() {
               </div>
             )}
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Date From</label>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">{tr('Date From', 'Date debut')}</label>
               <input
                 type="date"
                 className="input w-full"
@@ -747,7 +750,7 @@ export default function PatientsPage() {
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Date To</label>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">{tr('Date To', 'Date fin')}</label>
               <input
                 type="date"
                 className="input w-full"
@@ -756,13 +759,13 @@ export default function PatientsPage() {
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Location</label>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">{tr('Location', 'Localisation')}</label>
               <select
                 className="input w-full"
                 value={filterLocation}
                 onChange={(e) => setFilterLocation(e.target.value)}
               >
-                <option value="">All Locations</option>
+                <option value="">{tr('All Locations', 'Tous les emplacements')}</option>
                 {floorOptionsList.map((floor) => (
                   <option key={floor.id} value={floor.id}>
                     {floor.label}
@@ -776,7 +779,7 @@ export default function PatientsPage() {
                 className="btn btn-secondary w-full"
                 onClick={resetFilters}
               >
-                Reset Filters
+                {tr('Reset Filters', 'Reinitialiser filtres')}
               </button>
             </div>
           </div>
@@ -786,14 +789,14 @@ export default function PatientsPage() {
       {/* Patients Table */}
       <div className="card">
         {loading ? (
-          <div className="text-center py-8">Loading patients...</div>
+          <div className="text-center py-8">{tr('Loading patients...', 'Chargement des patients...')}</div>
         ) : patients.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
-            No patients found. Add your first patient to get started.
+            {tr('No patients found. Add your first patient to get started.', 'Aucun patient trouve. Ajoutez votre premier patient pour commencer.')}
           </div>
         ) : filteredPatients.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
-            No patients match your filters. Try adjusting the search criteria.
+            {tr('No patients match your filters. Try adjusting the search criteria.', 'Aucun patient ne correspond a vos filtres. Ajustez les criteres de recherche.')}
           </div>
         ) : (
           <>
@@ -802,22 +805,22 @@ export default function PatientsPage() {
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
-                      Patient
+                      {tr('Patient', 'Patient')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
-                      Status
+                      {tr('Status', 'Statut')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
-                      Location
+                      {tr('Location', 'Localisation')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
-                      Doctor
+                      {tr('Doctor', 'Medecin')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
-                      Nurse
+                      {tr('Nurse', 'Infirmier')}
                     </th>
                     <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase">
-                      Actions
+                      {tr('Actions', 'Actions')}
                     </th>
                   </tr>
                 </thead>

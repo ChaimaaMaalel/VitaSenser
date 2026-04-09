@@ -7,6 +7,7 @@ import { formatDistanceToNow } from 'date-fns';
 import clsx from 'clsx';
 import { useAuthStore } from '../../store/authStore';
 import { resolveMediaUrl } from '../../lib/media';
+import { useLanguageStore } from '../../store/languageStore';
 
 interface Patient {
   _id: string;
@@ -76,6 +77,8 @@ interface NurseDashboardData {
 }
 
 export default function NurseDashboard() {
+  const language = useLanguageStore((state) => state.language);
+  const tr = (en: string, fr: string) => (language === 'fr' ? fr : en);
   const user = useAuthStore((state) => state.user);
   const [dashboardData, setDashboardData] = useState<NurseDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -92,7 +95,7 @@ export default function NurseDashboard() {
       const response = await api.get('/dashboard');
       setDashboardData(response.data.data);
     } catch (error: any) {
-      toast.error('Failed to load dashboard');
+      toast.error(tr('Failed to load dashboard', 'Echec du chargement du tableau de bord'));
     } finally {
       setLoading(false);
     }
@@ -169,7 +172,7 @@ export default function NurseDashboard() {
             <h1 className="text-3xl font-bold text-gray-900">{dashboardData?.nurse.name}</h1>
             <div className="flex items-center gap-2 mt-2">
               <span className={clsx('badge capitalize', getShiftColor(dashboardData?.nurse.shift || ''))}>
-                {dashboardData?.nurse.shift} Shift
+                {dashboardData?.nurse.shift} {tr('Shift', 'Service')}
               </span>
               {dashboardData?.nurse.certificationLevel && (
                 <span className="badge bg-blue-100 text-blue-800">
@@ -179,7 +182,7 @@ export default function NurseDashboard() {
             </div>
             {dashboardData?.nurse.department && (
               <p className="text-sm text-gray-600 mt-2">
-                Department: {dashboardData.nurse.department}
+                {tr('Department', 'Departement')}: {dashboardData.nurse.department}
               </p>
             )}
           </div>
@@ -192,23 +195,23 @@ export default function NurseDashboard() {
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <StatsCard
-          title="Assigned Patients"
+          title={tr('Assigned Patients', 'Patients assignes')}
           value={dashboardData?.patients.total || 0}
-          subtitle="Total assigned"
+          subtitle={tr('Total assigned', 'Total assigne')}
           icon={Users}
           color="blue"
         />
         <StatsCard
-          title="Critical Patients"
+          title={tr('Critical Patients', 'Patients critiques')}
           value={dashboardData?.patients.critical || 0}
-          subtitle="Require attention"
+          subtitle={tr('Require attention', 'Necessitent attention')}
           icon={Activity}
           color="red"
         />
         <StatsCard
-          title="Active Alerts"
+          title={tr('Active Alerts', 'Alertes actives')}
           value={dashboardData?.alerts.active || 0}
-          subtitle={`${dashboardData?.alerts.critical || 0} critical`}
+          subtitle={tr(`${dashboardData?.alerts.critical || 0} critical`, `${dashboardData?.alerts.critical || 0} critiques`)}
           icon={AlertTriangle}
           color="orange"
         />
@@ -219,7 +222,7 @@ export default function NurseDashboard() {
         {/* Assigned Patients */}
         <div className="card">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-gray-900">My Patients</h2>
+            <h2 className="text-xl font-bold text-gray-900">{tr('My Patients', 'Mes patients')}</h2>
             <Users className="w-5 h-5 text-blue-500" />
           </div>
 
@@ -235,15 +238,15 @@ export default function NurseDashboard() {
                       <p className="text-sm text-gray-600 mt-1">
                         {patient.bedId?.roomId?.floorId?.floorNumber && (
                           <>
-                            Floor {patient.bedId.roomId.floorId.floorNumber} •{' '}
+                            {tr('Floor', 'Etage')} {patient.bedId.roomId.floorId.floorNumber} •{' '}
                           </>
                         )}
                         {patient.bedId?.roomId?.roomNumber && (
                           <>
-                            Room {patient.bedId.roomId.roomNumber} •{' '}
+                            {tr('Room', 'Salle')} {patient.bedId.roomId.roomNumber} •{' '}
                           </>
                         )}
-                        {patient.bedId?.bedNumber && <>Bed {patient.bedId.bedNumber}</>}
+                        {patient.bedId?.bedNumber && <>{tr('Bed', 'Lit')} {patient.bedId.bedNumber}</>}
                       </p>
                     </div>
                     <span className={clsx('badge text-xs capitalize', getStatusColor(patient.status))}>
@@ -253,7 +256,7 @@ export default function NurseDashboard() {
                 </div>
               ))
             ) : (
-              <p className="text-gray-500 text-center py-4">No assigned patients</p>
+              <p className="text-gray-500 text-center py-4">{tr('No assigned patients', 'Aucun patient assigne')}</p>
             )}
           </div>
         </div>

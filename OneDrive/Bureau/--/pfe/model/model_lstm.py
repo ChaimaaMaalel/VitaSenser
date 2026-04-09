@@ -382,8 +382,8 @@ class RespiratoryPredictor:
         if path is None:
             path = config.MODEL_PATHS['lstm']
         
-        # Load Keras model
-        self.model = keras.models.load_model(path)
+        # Load Keras model in inference mode to avoid optimizer/metric deserialization issues.
+        self.model = keras.models.load_model(path, compile=False)
         
         # Load metadata
         metadata_path = path.replace('.h5', '_metadata.pkl')

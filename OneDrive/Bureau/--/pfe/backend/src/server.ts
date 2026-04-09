@@ -20,6 +20,10 @@ import hospitalRoutes from './routes/hospital.routes';
 import alertRoutes from './routes/alert.routes';
 import vitalSignsRoutes from './routes/vitalSigns.routes';
 import dashboardRoutes from './routes/dashboard.routes';
+import simulationRoutes from './routes/simulation.routes';
+import aiRoutes from './routes/ai.routes';
+import notificationRoutes from './routes/notification.routes';
+import { setSocketServer } from './realtime/socket';
 
 // Load environment variables
 dotenv.config();
@@ -35,6 +39,8 @@ const io = new Server(httpServer, {
     credentials: true,
   },
 });
+
+setSocketServer(io);
 
 // Middleware
 app.use(
@@ -70,6 +76,9 @@ app.use(`/api/${API_VERSION}/hospital`, hospitalRoutes);
 app.use(`/api/${API_VERSION}/alerts`, alertRoutes);
 app.use(`/api/${API_VERSION}/vital-signs`, vitalSignsRoutes);
 app.use(`/api/${API_VERSION}/dashboard`, dashboardRoutes);
+app.use(`/api/${API_VERSION}/simulation`, simulationRoutes);
+app.use(`/api/${API_VERSION}/ai`, aiRoutes);
+app.use(`/api/${API_VERSION}/notifications`, notificationRoutes);
 
 // WebSocket connection handling
 io.on('connection', (socket) => {
@@ -80,9 +89,29 @@ io.on('connection', (socket) => {
     logger.info(`Client ${socket.id} subscribed to patient ${patientId}`);
   });
 
+  socket.on('subscribe-bed', (bedId: string) => {
+    socket.join(`bed:${bedId}`);
+    logger.info(`Client ${socket.id} subscribed to bed ${bedId}`);
+  });
+
+  socket.on('subscribe-user', (userId: string) => {
+    socket.join(`user:${userId}`);
+    logger.info(`Client ${socket.id} subscribed to user ${userId}`);
+  });
+
   socket.on('unsubscribe-patient', (patientId: string) => {
     socket.leave(`patient:${patientId}`);
     logger.info(`Client ${socket.id} unsubscribed from patient ${patientId}`);
+  });
+
+  socket.on('unsubscribe-bed', (bedId: string) => {
+    socket.leave(`bed:${bedId}`);
+    logger.info(`Client ${socket.id} unsubscribed from bed ${bedId}`);
+  });
+
+  socket.on('unsubscribe-user', (userId: string) => {
+    socket.leave(`user:${userId}`);
+    logger.info(`Client ${socket.id} unsubscribed from user ${userId}`);
   });
 
   socket.on('disconnect', () => {

@@ -7,6 +7,7 @@ import { formatDistanceToNow } from 'date-fns';
 import clsx from 'clsx';
 import { useAuthStore } from '../../store/authStore';
 import { resolveMediaUrl } from '../../lib/media';
+import { useLanguageStore } from '../../store/languageStore';
 
 interface Patient {
   _id: string;
@@ -65,6 +66,8 @@ interface AdminDashboardData {
 }
 
 export default function AdminDashboard() {
+  const language = useLanguageStore((state) => state.language);
+  const tr = (en: string, fr: string) => (language === 'fr' ? fr : en);
   const user = useAuthStore((state) => state.user);
   const [dashboardData, setDashboardData] = useState<AdminDashboardData | null>(null);
   const [patientsWithAlerts, setPatientsWithAlerts] = useState<Patient[]>([]);
@@ -89,7 +92,7 @@ export default function AdminDashboard() {
       setRecentAlerts(alertsRes.data.data.alerts || []);
       setPatientsWithAlerts(patientsRes.data.data.patientsWithAlerts || []);
     } catch (error: any) {
-      toast.error('Failed to load dashboard');
+      toast.error(tr('Failed to load dashboard', 'Echec du chargement du tableau de bord'));
     } finally {
       setLoading(false);
     }
@@ -137,15 +140,15 @@ export default function AdminDashboard() {
       <div className="card bg-gradient-to-r from-blue-50 to-cyan-50">
         <div className="flex items-start justify-between mb-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Hospital Overview</h1>
-            <p className="text-gray-600 mt-1">Smart Hospital Management System</p>
+            <h1 className="text-3xl font-bold text-gray-900">{tr('Hospital Overview', 'Vue generale de hopital')}</h1>
+            <p className="text-gray-600 mt-1">{tr('Smart Hospital Management System', 'Systeme de gestion Smart Hospital')}</p>
             <div className="flex items-center gap-4 mt-3">
               <div>
-                <p className="text-sm text-gray-600">Total Beds</p>
+                <p className="text-sm text-gray-600">{tr('Total Beds', 'Total lits')}</p>
                 <p className="text-2xl font-bold text-gray-900">{dashboardData?.beds.total || 0}</p>
               </div>
               <div className="border-l border-gray-300 pl-4">
-                <p className="text-sm text-gray-600">Occupancy Rate</p>
+                <p className="text-sm text-gray-600">{tr('Occupancy Rate', 'Taux occupation')}</p>
                 <p className="text-2xl font-bold text-blue-600">{dashboardData?.beds.occupancyRate || 0}%</p>
               </div>
             </div>
@@ -170,23 +173,23 @@ export default function AdminDashboard() {
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <StatsCard
-          title="Total Patients"
+          title={tr('Total Patients', 'Total patients')}
           value={dashboardData?.patients.total || 0}
-          subtitle={`${dashboardData?.patients.active || 0} active`}
+          subtitle={tr(`${dashboardData?.patients.active || 0} active`, `${dashboardData?.patients.active || 0} actifs`)}
           icon={Users}
           color="blue"
         />
         <StatsCard
-          title="Critical Patients"
+          title={tr('Critical Patients', 'Patients critiques')}
           value={dashboardData?.patients.critical || 0}
-          subtitle="Require attention"
+          subtitle={tr('Require attention', 'Necessitent attention')}
           icon={Activity}
           color="red"
         />
         <StatsCard
-          title="Active Alerts"
+          title={tr('Active Alerts', 'Alertes actives')}
           value={dashboardData?.alerts.active || 0}
-          subtitle={`${dashboardData?.alerts.critical || 0} critical`}
+          subtitle={tr(`${dashboardData?.alerts.critical || 0} critical`, `${dashboardData?.alerts.critical || 0} critiques`)}
           icon={AlertTriangle}
           color="orange"
         />
@@ -197,7 +200,7 @@ export default function AdminDashboard() {
         {/* Patients with Alerts */}
         <div className="card">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-gray-900">Patients with Alerts</h2>
+            <h2 className="text-xl font-bold text-gray-900">{tr('Patients with Alerts', 'Patients avec alertes')}</h2>
             <Users className="w-5 h-5 text-blue-500" />
           </div>
 
@@ -213,15 +216,15 @@ export default function AdminDashboard() {
                       <p className="text-sm text-gray-600 mt-1">
                         {patient.bedId?.roomId?.floorId?.floorNumber && (
                           <>
-                            Floor {patient.bedId.roomId.floorId.floorNumber} •{' '}
+                            {tr('Floor', 'Etage')} {patient.bedId.roomId.floorId.floorNumber} •{' '}
                           </>
                         )}
                         {patient.bedId?.roomId?.roomNumber && (
                           <>
-                            Room {patient.bedId.roomId.roomNumber} •{' '}
+                            {tr('Room', 'Salle')} {patient.bedId.roomId.roomNumber} •{' '}
                           </>
                         )}
-                        {patient.bedId?.bedNumber && <>Bed {patient.bedId.bedNumber}</>}
+                        {patient.bedId?.bedNumber && <>{tr('Bed', 'Lit')} {patient.bedId.bedNumber}</>}
                       </p>
                     </div>
                     <span className={clsx('badge text-xs capitalize', getStatusColor(patient.status))}>
@@ -231,7 +234,7 @@ export default function AdminDashboard() {
                 </div>
               ))
             ) : (
-              <p className="text-gray-500 text-center py-4">No patients with alerts</p>
+              <p className="text-gray-500 text-center py-4">{tr('No patients with alerts', 'Aucun patient avec alerte')}</p>
             )}
           </div>
         </div>
@@ -239,7 +242,7 @@ export default function AdminDashboard() {
         {/* Recent Alerts */}
         <div className="card">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-gray-900">Recent Alerts</h2>
+            <h2 className="text-xl font-bold text-gray-900">{tr('Recent Alerts', 'Alertes recentes')}</h2>
             <AlertTriangle className="w-5 h-5 text-orange-500" />
           </div>
 

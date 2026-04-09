@@ -225,4 +225,4 @@ PRODUCTION = {
     'max_patients': 50  # Maximum simultaneous patients
 }
 
-print("✓ Configuration loaded successfully")
+print("Configuration loaded successfully")
