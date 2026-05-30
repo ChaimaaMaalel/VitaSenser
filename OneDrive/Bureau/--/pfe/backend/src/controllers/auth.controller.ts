@@ -117,6 +117,10 @@ export const login = async (req: AuthRequest, res: Response) => {
     const user = await User.findOne({ email }).select('+password');
 
     if (!user || !user.isActive) {
+      logger.warn('Login failed: user not found or inactive', {
+        email,
+        ip: req.ip,
+      });
       return res.status(401).json({
         success: false,
         error: { message: 'Invalid credentials', statusCode: 401 },
@@ -127,6 +131,10 @@ export const login = async (req: AuthRequest, res: Response) => {
     const isPasswordValid = await user.comparePassword(password);
     
     if (!isPasswordValid) {
+      logger.warn('Login failed: invalid password', {
+        email,
+        ip: req.ip,
+      });
       return res.status(401).json({
         success: false,
         error: { message: 'Invalid credentials', statusCode: 401 },

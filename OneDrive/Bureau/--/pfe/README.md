@@ -123,7 +123,7 @@ pfe/
 │   └── requirements.txt
 │
 └── docs/                # Documentation
-    └── class_diagram.puml
+  └── class_diagram.mmd
 ```
 
 ---
@@ -168,7 +168,7 @@ Nurse:  nurse@hospital.com  / password123
 
 ## 📊 Database Schema
 
-See [class_diagram.puml](docs/class_diagram.puml) for complete UML diagram.
+See [class_diagram.mmd](docs/class_diagram.mmd) for complete UML diagram.
 
 **Main Entities:**
 - Users (Admin, Doctor, Nurse)

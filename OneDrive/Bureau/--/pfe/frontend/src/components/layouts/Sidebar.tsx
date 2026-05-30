@@ -67,6 +67,7 @@ export default function Sidebar() {
         <div className="flex items-center space-x-3">
           {profileImageUrl ? (
             <img
+            
               src={profileImageUrl}
               alt="Profile"
               className="w-10 h-10 rounded-full object-cover border border-gray-200"

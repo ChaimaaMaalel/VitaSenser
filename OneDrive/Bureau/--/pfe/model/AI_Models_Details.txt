@@ -38,8 +38,8 @@ Le système Smart Hospital utilise 4 modèles IA complémentaires :
 │ MODÈLE 2: RANDOM FOREST                                         │
 ├─────────────────────────────────────────────────────────────────┤
 │ Objectif       : Classification d'état patient                  │
-│ Entrée         : Vecteur de features                            │
-│ Sortie         : Classe (Stable/Attention/Critique)             │
+│ Entrée         : Vecteur de feattable/Attention/Cures                            │
+│ Sortie         : Classe (Sritique)             │
 │ Probabilités   : Confiance pour chaque classe                   │
 │ Avantages      : Interprétabilité, robustesse, multi-class      │
 │ Cas d'usage    : État général du patient                        │

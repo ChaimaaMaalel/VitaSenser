@@ -7,9 +7,10 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ScreenContainer } from '../components/ScreenContainer';
 import { colors } from '../theme/colors';
-import { api } from '../services/api';
+import { api, API_BASE_URL } from '../services/api';
 import { useAuthStore } from '../store/authStore';
 import { useI18n } from '../i18n/useI18n';
 
@@ -18,6 +19,7 @@ export function LoginScreen() {
   const { language, toggleLanguage, t } = useI18n();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,7 +47,16 @@ export function LoginScreen() {
         accessToken: token,
       });
     } catch (err: any) {
-      setError(err?.response?.data?.error?.message || t('login.failed'));
+      console.log('Login error:', {
+        message: err?.message,
+        status: err?.response?.status,
+        data: err?.response?.data,
+        baseUrl: API_BASE_URL,
+      });
+
+      const status = err?.response?.status;
+      const message = err?.response?.data?.error?.message || err?.message;
+      setError(`${t('login.failed')} ${status ? `(HTTP ${status})` : ''} ${message || ''}`.trim());
     } finally {
       setLoading(false);
     }
@@ -65,25 +76,42 @@ export function LoginScreen() {
           <Text style={styles.title}>{t('login.title')}</Text>
           <Text style={styles.subtitle}>{t('login.subtitle')}</Text>
 
-          <TextInput
-            value={email}
-            onChangeText={setEmail}
-            style={styles.input}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            placeholder={t('login.emailPlaceholder')}
-            placeholderTextColor={colors.textMuted}
-          />
-          <TextInput
-            value={password}
-            onChangeText={setPassword}
-            style={styles.input}
-            secureTextEntry
-            placeholder={t('login.passwordPlaceholder')}
-            placeholderTextColor={colors.textMuted}
-          />
+          <View style={styles.inputRow}>
+            <MaterialCommunityIcons name="email-outline" size={20} color={colors.textMuted} />
+            <TextInput
+              value={email}
+              onChangeText={setEmail}
+              style={styles.input}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              placeholder={t('login.emailPlaceholder')}
+              placeholderTextColor={colors.textMuted}
+            />
+          </View>
+          <View style={styles.inputRow}>
+            <MaterialCommunityIcons name="lock-outline" size={20} color={colors.textMuted} />
+            <TextInput
+              value={password}
+              onChangeText={setPassword}
+              style={styles.input}
+              secureTextEntry={!showPassword}
+              placeholder={t('login.passwordPlaceholder')}
+              placeholderTextColor={colors.textMuted}
+            />
+            <Pressable
+              onPress={() => setShowPassword((prev) => !prev)}
+              accessibilityLabel={showPassword ? t('login.hidePassword') : t('login.showPassword')}
+            >
+              <MaterialCommunityIcons
+                name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                size={20}
+                color={colors.textMuted}
+              />
+            </Pressable>
+          </View>
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
+          <Text style={styles.apiHint}>API: {API_BASE_URL}</Text>
 
           <Pressable style={styles.button} onPress={onSubmit} disabled={loading}>
             {loading ? (
@@ -93,7 +121,6 @@ export function LoginScreen() {
             )}
           </Pressable>
 
-          <Text style={styles.apiHint}>{t('login.apiHint')}: {api.defaults.baseURL}</Text>
         </View>
       </View>
     </ScreenContainer>
@@ -150,13 +177,20 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   input: {
+    color: colors.text,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    flex: 1,
+  },
+  inputRow: {
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 10,
     backgroundColor: '#fff',
-    color: colors.text,
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
   },
   button: {
     marginTop: 6,

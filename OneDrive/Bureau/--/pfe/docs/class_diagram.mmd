@@ -1,0 +1,333 @@
+---
+config:
+  layout: elk
+---
+classDiagram
+direction LR
+    class Utilisateur {
+	    -String id
+	    -String email
+	    -String motDePasse
+	    -String prenom
+	    -String nom
+	    -String telephone
+	    -Role role
+	    -Boolean estActif
+	    -DateTime creeLe
+	    +seConnecter() Token
+	    +seDeconnecter() void
+	    +mettreAJourProfil() void
+	    +changerMotDePasse() void
+    }
+    class Role {
+	    -String id
+	    -String code
+	    -String nom
+	    -String description
+	    -Boolean estActif
+	    -Module module
+	    -Permission[] permissions
+	    +ajouterPermission(permission) void
+	    +retirerPermission(permission) void
+	    +aPermission(code) Boolean
+    }
+    class Permission {
+	    -String id
+	    -String code
+	    -String libelle
+	    -String description
+	    -Module module
+	    +estAutorisee(role) Boolean
+    }
+    class Module {
+	    -String id
+	    -String code
+	    -String nom
+	    -String description
+	    -Permission[] permissions
+	    +ajouterPermission(permission) void
+	    +retirerPermission(permission) void
+    }
+    class Administrateur {
+	    -String[] permissions
+	    +creerUtilisateur() Utilisateur
+	    +supprimerUtilisateur(userId) void
+	    +gererRoles() void
+	    +voirJournauxSysteme() Log[]
+	    +genererRapports() Rapport
+	    +configurerSysteme() void
+	    +creerEtage() Etage
+	    +creerSalle() Salle
+	    +creerLit() Lit
+	    +gererHopital() void
+    }
+    class Medecin {
+	    -String specialite
+	    -String numeroLicence
+	    -Patient[] patients
+	    +voirPatients() Patient[]
+	    +assignerPatient(patientId) void
+	    +validerAlerte(alertId) void
+	    +prescrireTraitement(patientId) void
+	    +voirHistoriquePatient() Historique
+	    +creerProtocoleMedical() ProtocoleMedical
+    }
+    class Infirmier {
+	    -ShiftType poste
+	    -Etage etageAssigne
+	    -Patient[] patients
+	    +voirPatientsAssignes() Patient[]
+	    +mettreAJourConstantes(patientId) void
+	    +accuserReceptionAlerte(alertId) void
+	    +enregistrerIntervention(patientId) void
+	    +transfererPatient(patientId, nouveauLit) void
+    }
+    class Hopital {
+	    -String id
+	    -String nom
+	    -String adresse
+	    -Etage[] etages
+	    +tauxOccupation() Float
+	    +nombreTotalLits() Integer
+	    +nombreLitsDisponibles() Integer
+    }
+    class Etage {
+	    -String id
+	    -Integer numeroEtage
+	    -String nom
+	    -String description
+	    -Salle[] salles
+	    -Infirmier[] infirmiersAssignes
+	    +tauxOccupation() Float
+	    +sallesDisponibles() Salle[]
+	    +nombreTotalLits() Integer
+    }
+    class Salle {
+	    -String id
+	    -String numeroSalle
+	    -RoomType type
+	    -Integer capacite
+	    -Lit[] lits
+	    -Etage etage
+	    +estDisponible() Boolean
+	    +nombreLitsOccupes() Integer
+	    +litsDisponibles() Lit[]
+    }
+    class Lit {
+	    -String id
+	    -String numeroLit
+	    -BedStatus statut
+	    -Patient patient
+	    -Salle salle
+	    +assignerPatient(patient) void
+	    +libererPatient() void
+	    +estOccupe() Boolean
+    }
+    class Patient {
+	    -String id
+	    -String prenom
+	    -String nom
+	    -Date dateNaissance
+	    -Gender genre
+	    -String groupeSanguin
+	    -String antecedentsMedicaux
+	    -String[] allergies
+	    -DateTime dateAdmission
+	    -DateTime dateSortie
+	    -PatientStatus statut
+	    -Lit lit
+	    -Medecin medecinAssigne
+	    -Infirmier[] infirmiersAssignes
+	    +admettre(lit, medecin) void
+	    +sortir() void
+	    +transferer(nouveauLit) void
+	    +dernieresConstantes() SignesVitaux
+	    +alertesActives() Alerte[]
+    }
+    class DossierPatient {
+	    -String id
+	    -String patientId
+	    -String titre
+	    -String description
+	    -DateTime creeLe
+	    -DateTime misAJourLe
+	    -PieceDossier[] pieces
+	    +ajouterPiece(piece) void
+	    +supprimerPiece(pieceId) void
+	    +listerPieces() PieceDossier[]
+    }
+    class PieceDossier {
+	    -String id
+	    -String dossierId
+	    -String nomFichier
+	    -String typeMime
+	    -String categorie
+	    -String cheminFichier
+	    -Integer taille
+	    -DateTime televerseLe
+	    -Utilisateur televersePar
+	    +televerser() void
+	    +supprimer() void
+	    +telecharger() File
+    }
+    class Consigne {
+	    -String id
+	    -String code
+	    -String libelle
+	    -String description
+	    -Boolean active
+	    +activer() void
+	    +desactiver() void
+    }
+    class Recommendation {
+	    -String id
+	    -String contenu
+	    -String niveau
+	    -DateTime genereLe
+	    -Utilisateur generePar
+	    +appliquer() void
+	    +valider() void
+    }
+    class Simulateur {
+	    -String id
+	    -String nom
+	    -String version
+	    -String description
+	    -Boolean actif
+	    +simuler() void
+	    +reinitialiser() void
+    }
+    class AnalyseIA {
+	    -String id
+	    -String patientId
+	    -DateTime horodatage
+	    -String source
+	    -Float confianceGlobale
+	    -String[] recommandations
+	    -Alerte[] alertes
+	    +genererAlertes() Alerte[]
+	    +genererRecommandations() Recommendation[]
+	    +evaluer() void
+    }
+    class SignesVitaux {
+	    -String id
+	    -String patientId
+	    -DateTime horodatage
+	    -Integer frequenceCardiaque
+	    -Float spO2
+	    -Float temperature
+	    -Float[] donneesECG
+	    -Integer tensionSystolique
+	    -Integer tensionDiastolique
+	    +estAnormal() Boolean
+	    +calculerRisque() RiskLevel
+    }
+    class Prediction {
+	    -String id
+	    -String patientId
+	    -DateTime horodatage
+	    -PredictionType type
+	    -Float valeurPredite
+	    -Float confiance
+	    -Integer horizonTemps
+	    +precision() Float
+    }
+    class Alerte {
+	    -String id
+	    -String patientId
+	    -AlertType type
+	    -AlertSeverity severite
+	    -String message
+	    -DateTime horodatage
+	    -AlertStatus statut
+	    -String declenchePar
+	    -Utilisateur accuseePar
+	    -DateTime dateAccuseReception
+	    -SignesVitaux signesVitaux
+	    +accuserReception(utilisateur) void
+	    +escalader() void
+	    +resoudre() void
+	    +notifier(utilisateur) void
+    }
+    class Intervention {
+	    -String id
+	    -String patientId
+	    -Utilisateur effectueePar
+	    -InterventionType type
+	    -String description
+	    -DateTime horodatage
+	    -Alerte alerteLiee
+	    -String resultat
+	    +enregistrer() void
+	    +mettreAJour() void
+    }
+    class Rapport {
+	    -String id
+	    -String titre
+	    -ReportType type
+	    -Utilisateur generePar
+	    -DateTime dateGeneration
+	    -DateTime dateDebut
+	    -DateTime dateFin
+	    -JSON donnees
+	    +generer() void
+	    +exporterPDF() File
+	    +exporterExcel() File
+    }
+    class JournalAudit {
+	    -String id
+	    -String userId
+	    -String action
+	    -String entite
+	    -String entiteId
+	    -DateTime horodatage
+	    -String adresseIP
+	    -JSON details
+	    +enregistrer() void
+	    +rechercher(filtres) JournalAudit[]
+    }
+
+    Utilisateur <|-- Administrateur
+    Utilisateur <|-- Medecin
+    Utilisateur <|-- Infirmier
+    Utilisateur "1" --> "1" Role : a pour role
+    Role "*" --> "*" Permission : possede
+    Permission "*" --> "1" Module : appartient a
+    Role "*" --> "1" Module : concerne
+    Hopital "1" *-- "*" Etage
+    Etage "1" *-- "*" Salle
+    Salle "1" *-- "*" Lit
+    Lit "0..1" --> "0..1" Patient
+    Administrateur "1" --> "*" Hopital : gere
+    Administrateur "1" --> "*" Etage : cree/gerer
+    Administrateur "1" --> "*" Salle : cree/gerer
+    Administrateur "1" --> "*" Lit : cree/gerer
+    Administrateur "1" --> "*" Utilisateur : cree/gerer
+    Infirmier "*" --> "1" Etage : assigne a
+    Medecin "*" --> "1" Etage : assigne a
+	
+	Patient "*" --> "1" Medecin : assigne a
+    Patient "*" --> "*" Infirmier : surveille par
+	Patient "1" *-- "1" DossierPatient : possede
+	DossierPatient "1" *-- "*" PieceDossier : contient
+	Consigne "1" --> "*" Recommendation : guide
+	Recommendation "1" --> "*" Prediction : influence
+	Prediction "1" --> "*" Simulateur : alimente
+	SignesVitaux "1" --> "*" Simulateur : source
+	AnalyseIA "1" --> "*" Alerte : produit
+	AnalyseIA "1" --> "*" Recommendation : produit
+	Medecin "*" --> "*" AnalyseIA : consulte
+	Infirmier "*" --> "*" AnalyseIA : consulte
+    Patient "1" *-- "*" SignesVitaux
+    Patient "1" *-- "*" Prediction
+    Patient "1" *-- "*" Alerte
+	Patient "1" *-- "*" AnalyseIA
+    Alerte "*" --> "0..1" Utilisateur : accusee par
+    Alerte "*" --> "1" SignesVitaux : basee sur
+    Patient "1" *-- "*" Intervention
+    Intervention "*" --> "1" Utilisateur : effectuee par
+    Intervention "0..1" --> "0..1" Alerte : declenchee par
+    Rapport "*" --> "1" Utilisateur : genere par
+    Administrateur "1" --> "*" Rapport : genere
+    Utilisateur "1" --> "*" JournalAudit : genere
+    Administrateur "1" --> "*" JournalAudit : consulte
